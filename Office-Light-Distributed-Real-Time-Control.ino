@@ -3,7 +3,7 @@
 #define ADC_BUFFER_SIZE 100
 
 // PID
-pid my_pid {0.01, 1};
+pid my_pid {0.01, 1, 0, 0.05};
 float r {25.0};
 
 // Circular buffer
@@ -39,7 +39,7 @@ void loop() {
   // Read Sensor
   int adcReading = analogRead(SENSOR_PIN);
         // Average the sensor reading
-  writeIndex > (ADC_BUFFER_SIZE-1)? writeIndex = 0 : writeIndex == writeIndex;
+  writeIndex > (ADC_BUFFER_SIZE-1)? writeIndex = 0 : true;
   voltageArray[writeIndex] = (adcReading * 3.3) / 4096;
   writeIndex++;
   float sum = 0;
@@ -52,19 +52,19 @@ void loop() {
   resLDR = (R*3.3-voltageReading*R)/voltageReading;
   lux = pow(10,(log10(resLDR)-(float)b)/m);
   // Controller
-  /*float y = lux;
+  float y = lux;
   float u = my_pid.compute_control(r, y);
   int pwm = (int)u;
   analogWrite(LED_PIN, pwm);
   my_pid.housekeep(r, y);
-  delay(10);*/
+  delay(10);
   // Visualize
   Serial.print("Reference:");
   Serial.print(r);
   Serial.print(",");
-  Serial.print("PWM:");
-  Serial.print(r);
-  Serial.print(",");
+  /*Serial.print("PWM:");
+  Serial.print((u));
+  Serial.print(",");*/
   Serial.print("Lux:");
   Serial.println(lux);
 }
