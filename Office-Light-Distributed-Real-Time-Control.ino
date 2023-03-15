@@ -32,10 +32,10 @@ void setup() {
 
 void loop() {
   // Set the LED
-  /*if ( Serial.available() ){
-    pwmValue = Serial.parseInt();
-  }*/
-  analogWrite(LED_PIN, 4095);
+  if ( Serial.available() ){
+    r = Serial.parseInt(SKIP_ALL);
+  }
+  analogWrite(LED_PIN, r);
   // Read Sensor
   int adcReading = analogRead(SENSOR_PIN);
         // Average the sensor reading
@@ -63,7 +63,7 @@ void loop() {
   Serial.print(r);
   Serial.print(",");
   Serial.print("PWM:");
-  Serial.print(u);
+  Serial.print(r);
   Serial.print(",");
   Serial.print("Lux:");
   Serial.println(lux);
