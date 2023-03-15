@@ -52,12 +52,12 @@ void loop() {
   resLDR = (R*3.3-voltageReading*R)/voltageReading;
   lux = pow(10,(log10(resLDR)-(float)b)/m);
   // Controller
-  float y = lux;
+  /*float y = lux;
   float u = my_pid.compute_control(r, y);
   int pwm = (int)u;
   analogWrite(LED_PIN, pwm);
   my_pid.housekeep(r, y);
-  delay(10);
+  delay(10);*/
   // Visualize
   Serial.print("Reference:");
   Serial.print(r);
