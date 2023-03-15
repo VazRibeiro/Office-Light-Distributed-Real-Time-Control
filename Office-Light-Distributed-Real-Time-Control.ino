@@ -1,6 +1,17 @@
 #include "pid.h"
+#include <hardware/flash.h> //for flash_get_unique_id
+#include "mcp2515.h"
 
 #define ADC_BUFFER_SIZE 100
+
+// CAN
+uint8_t this_pico_flash_id[8], node_address;
+struct can_frame canMsgTx, canMsgRx;
+unsigned long counterTx {0}, counterRx {0};
+MCP2515::ERROR err;
+unsigned long time_to_write, time_to_read;
+unsigned long read_delay {10}, write_delay {1000};
+MCP2515 can0 {spi0, 17, 19, 16, 18, 10000000};
 
 // PID
 pid my_pid {0.01, 0.15, 0, 0.01};
@@ -27,15 +38,27 @@ void setup() {
   analogReadResolution(12);
   analogWriteResolution(12);
   Serial.begin(9600);
+
+  // CAN
+  flash_get_unique_id(this_pico_flash_id); //unique
+  node_address = this_pico_flash_id[7]; //maybe unique
+  Serial.begin();
+  can0.reset();
+  can0.setBitrate(CAN_1000KBPS);
+  can0.setNormalMode(); //setLoopbackMode() for debug
+  unsigned long current_time = millis();
+  time_to_write = current_time + write_delay;
+  time_to_read = current_time + read_delay;
 }
 
 
 void loop() {
-  // Set the LED
+  
+  /*// Set the LED
   if ( Serial.available() ){
-    r = Serial.parseInt(SKIP_ALL);
-  }
+    r = Serial.parseInt(SKIP_ALL);}
   analogWrite(LED_PIN, r);
+  
   // Read Sensor
   int adcReading = analogRead(SENSOR_PIN);
         // Average the sensor reading
@@ -50,21 +73,59 @@ void loop() {
   voltageReading = (float)sum / ADC_BUFFER_SIZE;
         // Resistance and Lux values
   resLDR = (R*3.3-voltageReading*R)/voltageReading;
-  lux = pow(10,(log10(resLDR)-(float)b)/m);
+  lux = pow(10,(log10(resLDR)-(float)b)/m);*/
+
+  analogWrite(LED_PIN, 500);
+  // CAN
+  unsigned long current_time = millis();
+  if( current_time >= time_to_write ) {
+    canMsgTx.can_id = node_address;
+    canMsgTx.can_dlc = 8;
+    //converts data from binary to text mode
+    unsigned long div = counterTx;
+    for( int i = 0; i < 8; i++ ) {
+      canMsgTx.data[7-i] = '0'+(int)(div%10);
+      div = div/10;
+    }
+    err = can0.sendMessage(&canMsgTx);
+    Serial.print("Sending message ");
+    Serial.print( counterTx );
+    Serial.print(" from node ");
+    Serial.println( node_address, HEX );
+    counterTx++;
+    time_to_write = current_time+write_delay;
+  }
+  if(current_time >= time_to_read ){
+    err = can0.readMessage( &canMsgRx ) ;
+    if ( err == MCP2515::ERROR_OK){
+      Serial.print("Received message number ");
+      Serial.print( counterRx++ );
+      Serial.print(" from node ");
+      Serial.print( canMsgRx.can_id , HEX);
+      Serial.print(" : ");
+      //the message comes in text mode
+      for (int i=0 ; i < canMsgRx.can_dlc ; i++)
+      Serial.print((char) canMsgRx.data[ i ]);
+      Serial.println(" ");
+    }
+    time_to_read = current_time + read_delay;
+  }
+  
   // Controller
-  float y = lux;
+  /*float y = lux;
   float u = my_pid.compute_control(r, y);
   int pwm = (int)u;
   analogWrite(LED_PIN, pwm);
   my_pid.housekeep(r, y);
-  delay(10);
+  delay(10);*/
+  
   // Visualize
-  Serial.print("Reference:");
+  /*Serial.print("Reference:");
   Serial.print(r);
   Serial.print(",");
-  /*Serial.print("PWM:");
+  Serial.print("PWM:");
   Serial.print((u));
-  Serial.print(",");*/
+  Serial.print(",");
   Serial.print("Lux:");
-  Serial.println(lux);
+  Serial.println(lux);*/
 }
