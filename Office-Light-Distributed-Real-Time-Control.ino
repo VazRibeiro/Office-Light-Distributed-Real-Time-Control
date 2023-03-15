@@ -3,7 +3,7 @@
 #define ADC_BUFFER_SIZE 100
 
 // PID
-pid my_pid {0.01, 1, 0, 0.05};
+pid my_pid {0.01, 0.15, 0, 0.01};
 float r {25.0};
 
 // Circular buffer
