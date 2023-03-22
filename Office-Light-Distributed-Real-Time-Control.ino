@@ -19,7 +19,7 @@ const int b = 6;
 float m = -0.8;
 
 // IO
-const int LED_PIN = 6;
+const int LED_PIN = 28;
 const int SENSOR_PIN = 26;
 
 void setup() {
@@ -62,9 +62,9 @@ void loop() {
   Serial.print("Reference:");
   Serial.print(r);
   Serial.print(",");
-  /*Serial.print("PWM:");
-  Serial.print((u));
-  Serial.print(",");*/
+  Serial.print("PWM:");
+  Serial.print((u)/100.0);
+  Serial.print(",");
   Serial.print("Lux:");
   Serial.println(lux);
 }
