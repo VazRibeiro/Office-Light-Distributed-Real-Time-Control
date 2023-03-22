@@ -1,10 +1,9 @@
 #ifndef ADC_H_
 #define ADC_H_
-#define ADC_BUFFER_SIZE 100
+#define ADC_BUFFER_SIZE 20
 
-#include <Arduino.h>
 #include <cmath>
 
-double getLuminance();
+double getLuminance(float adcReading);
 
 #endif

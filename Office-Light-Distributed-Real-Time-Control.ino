@@ -10,6 +10,7 @@ float pwmValue {0.0};
 double lux;
 
 // IO
+const int SENSOR_PIN = 26;
 const int LED_PIN = 28;
 
 void setup() {
@@ -26,8 +27,9 @@ void loop() {
     r = Serial.parseInt(SKIP_ALL);
   }
   analogWrite(LED_PIN, r);
-
-  lux = getLuminance();
+  // Read voltage
+  float adcReading = (analogRead(SENSOR_PIN)* 3.3) / 4096;
+  lux = getLuminance(adcReading);
   
   // Controller
   float y = lux;
