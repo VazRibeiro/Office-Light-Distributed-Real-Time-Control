@@ -59,6 +59,7 @@ void setup() {
     interruptPin, GPIO_IRQ_EDGE_FALL,
     true, &read_interrupt );
   time_to_write = millis() + write_delay;
+  
 }
 
 
@@ -134,4 +135,9 @@ void loop() {
   Serial.print(",");
   Serial.print("Lux:");
   Serial.println(lux);*/
+  Serial.print("Node adress:");
+  Serial.println(node_address);
+  //COM5 = 39
+  //COM3 = 33
+  //COM6 = 52
 }
