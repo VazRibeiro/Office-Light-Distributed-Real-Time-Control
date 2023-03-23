@@ -1,6 +1,9 @@
 #include "pid.h"
 #include "ADC.h"
 
+int interval;
+int timer = 0;
+
 // PID
 pid my_pid {0.01, 0.15, 0, 0.01};
 float r {25.0};
@@ -28,6 +31,9 @@ void loop() {
   analogWrite(LED_PIN, r);
   // Read voltage
   lux = getLuminance();
+
+  interval = millis()-timer;
+  timer = millis();
   
   // Controller
   float y = lux;
@@ -37,12 +43,14 @@ void loop() {
   my_pid.housekeep(r, y);
   delay(10);
   // Visualize
-  Serial.print("Reference:");
+  /*Serial.print("Reference:");
   Serial.print(r);
   Serial.print(",");
   Serial.print("PWM:");
   Serial.print((u)/100.0);
   Serial.print(",");
   Serial.print("Lux:");
-  Serial.println(lux);
+  Serial.println(lux);*/
+  //Serial.print("Period[ms]:");
+  Serial.println(interval);
 }
