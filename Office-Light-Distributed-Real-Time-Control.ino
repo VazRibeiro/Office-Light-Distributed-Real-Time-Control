@@ -23,8 +23,8 @@ void setup() {
 void loop() {
   // Set the LED
   analogWrite(LED_PIN, r);
-  
-  getSerialCommand();
+
+  serialStateMachine();
   
   // Read voltage
   lux = getLuminance();
@@ -35,7 +35,7 @@ void loop() {
   int pwm = (int)u;
   analogWrite(LED_PIN, pwm);
   my_pid.housekeep(r, y);
-  delay(10);
+  delay(100);
   // Visualize
   /*Serial.print("Reference:");
   Serial.print(r);

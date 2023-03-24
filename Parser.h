@@ -3,9 +3,10 @@
 #include <Arduino.h>
 #include <vector>
 
-String readSerial();
-String * parseSerial(String *message); //parses from a full string to an array of strings
+String readSerialCommand();
+String* parseSerialCommand(String *message); //parses from a full string to an array of strings
+void actuateSerialCommand(String* words); //Sets flags and executes getters
 
-void getSerialCommand(); //calls the other serial functions
+void serialStateMachine(); //calls the other serial functions
 
 #endif
