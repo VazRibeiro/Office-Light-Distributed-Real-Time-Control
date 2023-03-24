@@ -31,6 +31,8 @@ void loop() {
   analogWrite(LED_PIN, r);
 
   serialParser.serialStateMachine();
+  int duty = serialParser.Data::getDutyCycle();
+  Serial.println(duty);
   
   // Read voltage
   lux = getLuminance();

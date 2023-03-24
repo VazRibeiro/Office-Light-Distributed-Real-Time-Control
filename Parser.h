@@ -1,15 +1,6 @@
 #ifndef PARSER_H_
 #define PARSER_H_
 #include <Arduino.h>
-#include <vector>
-#include <string>
-
-/*String readSerialCommand();
-String* parseSerialCommand(String *message); //parses from a full string to an array of strings
-void actuateSerialCommand(String* words); //Sets flags and executes getters
-
-void serialStateMachine(); //calls the other serial functions*/
-
 #include "Data.h"
 
 class Parser : public Data {

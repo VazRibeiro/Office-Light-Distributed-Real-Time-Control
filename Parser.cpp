@@ -1,19 +1,5 @@
 #include "Parser.h"
 
-
-/*// state machine states
-enum serialState { READ , PARSE , ACTUATE };
-serialState currentState = READ;
-
-float readInterval, parseInterval, actuationInterval = 0; //measurement of the time it takes for each function
-const int MAX_MESSAGE_LENGTH = 20; // Maximum allowed message length
-const int MAX_WORD_LENGTH = 4; // Maximum allowed message length
-String serialMessage = ""; // raw message
-String* wordsSerial; // array of words
-
-// Debug flags
-bool getSerialDuration = true;
-bool confirmSerialMessage = true;*/
 String Parser::wordsSerial[MAX_WORD_LENGTH] = {"","","",""};
 
 // Constructor
@@ -117,7 +103,8 @@ void Parser::actuateSerialCommand(){
   float timer = micros();
 
   if (wordsSerial[0]=="d"){
-    Serial.println("Actuated!");
+    int duty = getDutyCycle()+100;
+    Data::setDutyCycle(duty);
   }
   //count time:
   actuationInterval = micros()-timer;
