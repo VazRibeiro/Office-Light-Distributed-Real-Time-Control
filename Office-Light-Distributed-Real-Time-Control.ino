@@ -18,6 +18,7 @@ void setup() {
   analogReadResolution(12);
   analogWriteResolution(12);
   Serial.begin(9600);
+  Serial.setTimeout(0);
 }
 
 void loop() {
@@ -37,15 +38,16 @@ void loop() {
       serialInput += c;
     }
   }*/
-   
-  
+  float interval1, interval2, interval3 = 0;
+  float timer = micros();
   const int MAX_MESSAGE_LENGTH = 20; // Maximum allowed message length
-  const int MAX_WORD_LENGTH = 5; // Maximum allowed message length
+  const int MAX_WORD_LENGTH = 4; // Maximum allowed message length
   
   if (Serial.available()) {
     String message = Serial.readStringUntil('\n'); // Read the incoming message
     message.trim(); // Remove any whitespace from the beginning and end of the message
-
+    interval1 = micros()-timer;
+    timer = micros();
     if (message.length() > MAX_MESSAGE_LENGTH) {
       Serial.println("Error: Message too long"); // Print an error message if the message is too long
       return; // Exit the loop without processing the message
@@ -64,7 +66,9 @@ void loop() {
       word = strtok(NULL, " "); // Get the next word
       i++;
     }
-
+    interval2 = micros()-timer;
+    timer = micros();
+    
     // Print the words to the serial monitor
     Serial.println("Received the command:");
     for (int j = 0; j < i; j++) {
@@ -73,6 +77,15 @@ void loop() {
       Serial.print(": ");
       Serial.println(words[j]);
     }
+    interval3 = micros()-timer;
+    Serial.print("Time to read:");
+    Serial.print(interval1);
+    Serial.print(",");
+    Serial.print("Time to parse:");
+    Serial.print(interval2);
+    Serial.print(",");
+    Serial.print("Time to write:");
+    Serial.println(interval3);
   }
   
   // Read voltage
