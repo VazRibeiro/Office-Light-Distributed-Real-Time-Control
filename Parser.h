@@ -5,7 +5,6 @@
 
 String readSerial();
 String * parseSerial(String *message); //parses from a full string to an array of strings
-void debugSerial();
 
 void getSerialCommand(); //calls the other serial functions
 

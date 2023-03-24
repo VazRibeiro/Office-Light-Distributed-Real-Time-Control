@@ -46,10 +46,6 @@ void getSerialCommand(){
     String* words;
     words = parseSerial(&message); //obtain each of the words contained in the command as Strings
 
-    void debugSerial();
-  }
-
-  void debugSerial(){
     // write the command back to the user for debug
     if (confirmSerialMessage){
       // Print the words to the serial monitor

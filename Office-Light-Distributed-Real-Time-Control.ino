@@ -6,7 +6,6 @@
 pid my_pid {0.01, 0.15, 0, 0.01};
 float r {25.0};
 
-
 float pwmValue {0.0};
 double lux;
 
