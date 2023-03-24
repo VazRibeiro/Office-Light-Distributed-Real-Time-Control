@@ -2,103 +2,105 @@
 
 // Constructor
 Data::Data() 
-    : dutyCycle(0), 
-      reference(0), 
-      illuminance(0.0), 
-      occupancy(false), 
-      windUp(false), 
-      feedback(false), 
-      externalIlluminance(0.0), 
-      powerConsumption(0.0), 
-      lastRestartTime(0.0), 
-      streamValues(false), 
-      sendLMBuffer(false)
+  : boardNumber(0),
+    nodeID(0),
+    dutyCycle(0), 
+    reference(0), 
+    illuminance(0.0), 
+    occupancy(false), 
+    windUp(false), 
+    feedback(false), 
+    externalIlluminance(0.0), 
+    powerConsumption(0.0), 
+    lastRestartTime(0.0), 
+    streamValues(false), 
+    sendLMBuffer(false)
 { }
 
 // Getter functions
 int Data::getDutyCycle() const {
-    return dutyCycle;
+  return dutyCycle;
 }
 
 int Data::getReference() const {
-    return reference;
+  return reference;
 }
 
 double Data::getIlluminance() const {
-    return illuminance;
+  return illuminance;
 }
 
 bool Data::getOccupancy() const {
-    return occupancy;
+  return occupancy;
 }
 
 bool Data::getWindUp() const {
-    return windUp;
+  return windUp;
 }
 
 bool Data::getFeedback() const {
-    return feedback;
+  return feedback;
 }
 
 double Data::getExternalIlluminance() const {
-    return externalIlluminance;
+  return externalIlluminance;
 }
 
 double Data::getPowerConsumption() const {
-    return powerConsumption;
+  return powerConsumption;
 }
 
 double Data::getLastRestartTime() const {
-    return lastRestartTime;
+  return lastRestartTime;
 }
 
 bool Data::getStreamValues() const {
-    return streamValues;
+  return streamValues;
 }
 
 bool Data::getSendLMBuffer() const {
-    return sendLMBuffer;
+  return sendLMBuffer;
 }
 
 // Setter functions
 void Data::setDutyCycle(int duty) {
-    dutyCycle = duty;
+  dutyCycle = duty;
 }
 
 void Data::setReference(int ref) {
-    reference = ref;
+  reference = ref;
 }
 
 void Data::setIlluminance(double ill) {
-    illuminance = ill;
+  illuminance = ill;
 }
 
 void Data::setOccupancy(bool occ) {
-    occupancy = occ;
+  occupancy = occ;
 }
 
 void Data::setWindUp(bool wu) {
-    windUp = wu;
+  windUp = wu;
 }
 
 void Data::setFeedback(bool fb) {
-    feedback = fb;
+  feedback = fb;
 }
 
 void Data::setExternalIlluminance(double extIll) {
-    externalIlluminance = extIll;
+  externalIlluminance = extIll;
 }
 
 void Data::setPowerConsumption(double powCons) {
-    powerConsumption = powCons;
+  powerConsumption = powCons;
 }
 
 void Data::setLastRestartTime(double time) {
-    lastRestartTime = time;
+  lastRestartTime = time;
 }
 
 void Data::setStreamValues(bool stream) {
-    streamValues = stream;
+  streamValues = stream;
 }
 
 void Data::setSendLMBuffer(bool sendLM) {

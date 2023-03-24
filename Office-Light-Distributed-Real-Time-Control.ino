@@ -1,10 +1,15 @@
 #include "pid.h"
 #include "ADC.h"
 #include "Parser.h"
+#include "Data.h"
+#include <hardware/flash.h> //for flash_get_unique_id
 
 // PID
 pid my_pid {0.01, 0.15, 0, 0.01};
 float r {25.0};
+
+// Create a Parse object
+Parser serialParser;
 
 float pwmValue {0.0};
 double lux;
@@ -21,10 +26,11 @@ void setup() {
 }
 
 void loop() {
+  
   // Set the LED
   analogWrite(LED_PIN, r);
 
-  serialStateMachine();
+  serialParser.serialStateMachine();
   
   // Read voltage
   lux = getLuminance();

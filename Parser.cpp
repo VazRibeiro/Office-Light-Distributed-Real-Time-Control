@@ -1,31 +1,39 @@
 #include "Parser.h"
-#include "Data.h"
 
-//////////////////////////// Variables ////////////////////////////
 
-// state machine states
+/*// state machine states
 enum serialState { READ , PARSE , ACTUATE };
 serialState currentState = READ;
 
 float readInterval, parseInterval, actuationInterval = 0; //measurement of the time it takes for each function
 const int MAX_MESSAGE_LENGTH = 20; // Maximum allowed message length
 const int MAX_WORD_LENGTH = 4; // Maximum allowed message length
-String serialMessage = "";
-String* wordsSerial;
+String serialMessage = ""; // raw message
+String* wordsSerial; // array of words
 
 // Debug flags
 bool getSerialDuration = true;
-bool confirmSerialMessage = true;
+bool confirmSerialMessage = true;*/
+String Parser::wordsSerial[MAX_WORD_LENGTH] = {"","","",""};
+
+// Constructor
+Parser::Parser() 
+  : currentState(READ),
+    serialMessage(""), 
+    getSerialDuration(true), 
+    confirmSerialMessage(true), 
+    readInterval(0), 
+    parseInterval(0), 
+    actuationInterval(0)
+{ }
 
 
-
-//////////////////////////// Functions ////////////////////////////
-void serialStateMachine(){
+void Parser::serialStateMachine(){
   switch(currentState)
   {
     case READ:
       if (Serial.available()) {
-        serialMessage = readSerialCommand();
+        readSerialCommand();
         currentState = PARSE;
       }
       break;
@@ -37,13 +45,13 @@ void serialStateMachine(){
       }
       else
       {
-        wordsSerial = parseSerialCommand(&serialMessage); //obtain each of the words contained in the command as Strings
+        parseSerialCommand(); //obtain each of the words contained in the command as Strings
         currentState = ACTUATE;
       }
       break;
       
     case ACTUATE:
-      actuateSerialCommand(wordsSerial);
+      actuateSerialCommand();
     
       // write the command back to the user for debug
       if (confirmSerialMessage){
@@ -67,47 +75,51 @@ void serialStateMachine(){
         Serial.print("Time to actuate:");
         Serial.println(actuationInterval);
       }
+
+      for (int i = 0; i < MAX_WORD_LENGTH; i++) {
+        wordsSerial[i] = "";
+      }
       currentState = READ;
   }
 }
 
 
-String readSerialCommand(){
+void Parser::readSerialCommand(){
   float timer = micros();
-  String message = Serial.readStringUntil('\n'); // Read the incoming message
-  message.trim(); // Remove any whitespace from the beginning and end of the message
+  serialMessage = Serial.readStringUntil('\n'); // Read the incoming message
+  serialMessage.trim(); // Remove any whitespace from the beginning and end of the message
+  //count time:
   readInterval = micros()-timer;
-  return message;
+  return;
 }
 
 
-String* parseSerialCommand(String *message){
+void Parser::parseSerialCommand(){
   float timer = micros();
   // Split the message into words
   char messageBuf[MAX_MESSAGE_LENGTH+1]; // Assume the message has no more than MAX_MESSAGE_LENGTH + null terminator character '\0'
-  message->toCharArray(messageBuf, MAX_MESSAGE_LENGTH+1); // Convert the message to a char array
+  serialMessage.toCharArray(messageBuf, MAX_MESSAGE_LENGTH+1); // Convert the message to a char array
   char* word = strtok(messageBuf, " "); // Split the message at space characters and get the first word
   
   // Save each word to an array
-  static String words[MAX_WORD_LENGTH]; // Assume the message has no more than MAX_WORD_LENGTH words
   int i = 0;
   while (word != NULL && i < MAX_WORD_LENGTH) {
-    words[i] = String(word);
+    wordsSerial[i] = String(word);
     word = strtok(NULL, " "); // Get the next word
     i++;
   }
   parseInterval = micros()-timer;
-  return words;
+  return;
 }
 
 
-void actuateSerialCommand(String* words){
+void Parser::actuateSerialCommand(){
   float timer = micros();
 
-  if (words[0]=="d"){
+  if (wordsSerial[0]=="d"){
     Serial.println("Actuated!");
   }
-  
+  //count time:
   actuationInterval = micros()-timer;
   return;
 }
