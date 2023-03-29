@@ -4,7 +4,7 @@ const int SENSOR_PIN = 26;
 int writeIndexADC = 0;
 float voltageArray[ADC_BUFFER_SIZE];
 const int R = 10000;
-const int b = 6;
+const int b = 6; // for middle board 2 set to 5.6
 const float m = -0.8;
 
 float getADCReading(){

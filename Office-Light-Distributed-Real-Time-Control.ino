@@ -22,7 +22,7 @@ MCP2515 can0 {spi0, 17, 19, 16, 18, 10000000};
 
 
 // Class instances
-pid my_pid {0.01, 0.35, 300.7, 0.008, 0, 10, 0.01};
+pid my_pid {0.01, 50, 1, 0.5}; // h, K, b, Ti
 Parser serialParser;
 
 // flags and auxiliary variables
@@ -162,11 +162,10 @@ void loop() {
     float r = serialParser.Data::getReference();
     float y = lux;
     float v = my_pid.compute_control(r, y); //unsaturated output
-    float u = my_pid.compute_control(r, y); //unsaturated output
-    //float u = my_pid.saturate_output(v);
+    float u = my_pid.saturate_output(v);
     int pwm = (int)u;
     analogWrite(LED_PIN, pwm); // Set the LED
-    my_pid.housekeep(r, y,v);
+    my_pid.housekeep(r, y, v, u);
 
     
     // Visualization commands
