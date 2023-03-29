@@ -2,6 +2,7 @@
 #define PARSER_H_
 #include <Arduino.h>
 #include "Data.h"
+#include "ADC.h"
 
 class Parser : public Data {
   public:

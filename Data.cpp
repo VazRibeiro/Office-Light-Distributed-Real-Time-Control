@@ -3,31 +3,30 @@
 // Constructor
 Data::Data() 
   : boardNumber(0),
-    nodeID(0),
     dutyCycle(0), 
     reference(0), 
-    illuminance(0.0), 
     occupancy(false), 
     windUp(false), 
     feedback(false), 
     externalIlluminance(0.0), 
     powerConsumption(0.0), 
     lastRestartTime(0.0), 
-    streamValues(false), 
+    illuminanceStreamValues(false),
+    dutyCycleStreamValues(false),
     sendLMBuffer(false)
 { }
 
-// Getter functions
+// Getter functions //////////////////////////////////////////
+String Data::getBoardNumber() const {
+  return boardNumber;
+}
+
 int Data::getDutyCycle() const {
   return dutyCycle;
 }
 
 int Data::getReference() const {
   return reference;
-}
-
-double Data::getIlluminance() const {
-  return illuminance;
 }
 
 bool Data::getOccupancy() const {
@@ -54,25 +53,31 @@ double Data::getLastRestartTime() const {
   return lastRestartTime;
 }
 
-bool Data::getStreamValues() const {
-  return streamValues;
+bool Data::getIlluminanceStreamValues() const {
+  return illuminanceStreamValues;
+}
+
+bool Data::getDutyCycleStreamValues() const {
+  return dutyCycleStreamValues;
 }
 
 bool Data::getSendLMBuffer() const {
   return sendLMBuffer;
 }
 
-// Setter functions
+
+// Setter functions ///////////////////////////////////////////////
+
+void Data::setBoardNumber(String boardNumb) {
+  boardNumber = boardNumb;
+}
+
 void Data::setDutyCycle(int duty) {
   dutyCycle = duty;
 }
 
 void Data::setReference(int ref) {
   reference = ref;
-}
-
-void Data::setIlluminance(double ill) {
-  illuminance = ill;
 }
 
 void Data::setOccupancy(bool occ) {
@@ -99,8 +104,12 @@ void Data::setLastRestartTime(double time) {
   lastRestartTime = time;
 }
 
-void Data::setStreamValues(bool stream) {
-  streamValues = stream;
+void Data::setIlluminanceStreamValues(bool streamI) {
+  illuminanceStreamValues = streamI;
+}
+
+void Data::setDutyCycleStreamValues(bool streamD) {
+  dutyCycleStreamValues = streamD;
 }
 
 void Data::setSendLMBuffer(bool sendLM) {

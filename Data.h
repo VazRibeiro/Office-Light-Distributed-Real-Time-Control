@@ -1,20 +1,20 @@
 #ifndef DATA_H
 #define DATA_H
+#include <Arduino.h>
 
 class Data {
 private:
-  int boardNumber;
-  int nodeID;
+  String boardNumber;
   int dutyCycle;
   int reference;
-  double illuminance;
   bool occupancy;
   bool windUp;
   bool feedback;
   double externalIlluminance;
   double powerConsumption;
   double lastRestartTime;
-  bool streamValues;
+  bool illuminanceStreamValues;
+  bool dutyCycleStreamValues;
   bool sendLMBuffer;
 
 public:
@@ -22,29 +22,31 @@ public:
   Data();
 
   // Getter functions
+  String getBoardNumber() const;
   int getDutyCycle() const;
   int getReference() const;
-  double getIlluminance() const;
   bool getOccupancy() const;
   bool getWindUp() const;
   bool getFeedback() const;
   double getExternalIlluminance() const;
   double getPowerConsumption() const;
   double getLastRestartTime() const;
-  bool getStreamValues() const;
+  bool getIlluminanceStreamValues() const;
+  bool getDutyCycleStreamValues() const;
   bool getSendLMBuffer() const;
 
   // Setter functions
+  void setBoardNumber(String boardNumb);
   void setDutyCycle(int duty);
   void setReference(int ref);
-  void setIlluminance(double ill);
   void setOccupancy(bool occ);
   void setWindUp(bool wu);
   void setFeedback(bool fb);
   void setExternalIlluminance(double extIll);
   void setPowerConsumption(double powCons);
   void setLastRestartTime(double time);
-  void setStreamValues(bool stream);
+  void setIlluminanceStreamValues(bool streamI);
+  void setDutyCycleStreamValues(bool streamD);
   void setSendLMBuffer(bool sendLM);
 };
 

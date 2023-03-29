@@ -1,19 +1,28 @@
 #ifndef PID_H
 #define PID_H
+#include <Arduino.h>
+
 class pid
 {
-float I, D, K, Ti, Td, b, h, y_old, N;
+float I, D, K, Ti, Td, b, h, y_old, N, bold, kold, Tt;
 
 public:
 explicit pid( float _h, float _K = 1, float b_ = 1,
-float Ti_ = 1, float Td_ = 0, float N_ = 10);
+float Ti_ = 1, float Td_ = 0, float N_ = 10, float bold_ = 0, float kold_ = 0, float Tt_ = 0 );
 ~pid() {};
 float compute_control( float r, float y);
-void housekeep( float r, float y);
+void housekeep( float r, float y, float u);
+float saturate_output( float v );
 };
-inline void pid::housekeep( float r, float y ) {
-float e = r-y;
-I += K*h/Ti*e;
-y_old = y;
+
+
+inline void pid::housekeep( float r, float y , float v) {
+  //float u = saturate_output(v);
+  float e = r-y;
+  I = I + K*h/Ti*e;
+  //I = I + K*h/Ti*e + (h/Tt)*(u-v);
+  y_old = y;
+  kold = K;
+  bold = b;
 }
 #endif //PID_H
