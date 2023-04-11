@@ -2,14 +2,16 @@
 
 - [x] ADC Reading
 - [x] Serial Communication
-- [:white_check_mark:] Earth (Orbit/Moon)
-- [x] Mars
-- [ ] Jupiter
-- [ ] Saturn
-- [ ] Uranus
-- [ ] Neptune
-- [ ] Comet Haley
+- [x] PID
+- [x] Anti windup
+- [x] Timer interrupts
+- [ ] Buffer
+- [ ] Metrics
+- [ ] CAN
+- [ ] Wake up
+- [ ] Calibration
+- [ ] Decentralized control
+- [ ] CAN
 
-Function | MySQL / MariaDB | PostgreSQL | SQLite
-:------------ | :-------------| :-------------| :-------------
-substr | :heavy_check_mark: |  :white_check_mark: | :heavy_check_mark:
+
+
