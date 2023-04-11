@@ -8,10 +8,10 @@
 - [ ] Buffer
 - [ ] Metrics
 - [ ] CAN
+- [ ] Hub mode
 - [ ] Wake up
 - [ ] Calibration
 - [ ] Decentralized control
-- [ ] CAN
-
-
-
+- [ ] TCP/IP and UDP demo clients
+- [ ] Console for user commands
+- [ ] Remote operation
