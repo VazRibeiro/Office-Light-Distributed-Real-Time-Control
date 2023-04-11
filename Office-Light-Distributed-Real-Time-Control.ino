@@ -3,38 +3,33 @@
 #include "Parser.h"
 #include "Data.h"
 #include <hardware/flash.h>
-#include "mcp2515.h"
+#include "can.h"
 
 // Flash
 uint8_t this_pico_flash_id[8], node_address;
 
 // CAN
-struct can_frame canMsgTx, canMsgRx;
-unsigned long counterTx {0}, counterRx {0};
-MCP2515::ERROR err;
-unsigned long time_to_write;
-unsigned long write_delay {1000};
-const byte interruptPin {20};
-volatile byte data_available {false};
 
 //CAN Mask
-MCP2515 can0 {spi0, 17, 19, 16, 18, 10000000};
+
 
 
 // Class instances
 pid my_pid {0.01, 0.35, 300.7, 0.008, 0, 10, 0.01};
 Parser serialParser;
+CustomCAN customCAN;
 
 // flags and auxiliary variables
 int counter {0};
 int period {0};
 bool plotJitter {false};
-bool plotControl {true};
-bool canSend {false};
-bool canReceive {false};
+bool plotControl {false};
+bool canSend {true};
+bool canReceive {true};
 
 // IO
 const int LED_PIN {28};
+
 
 // Interrupts
 volatile unsigned long int timer1_time {0};
@@ -43,6 +38,7 @@ struct repeating_timer timer1;
 volatile unsigned long int timer2_time {0};
 volatile bool timer2_fired {false};
 struct repeating_timer timer2;
+
 
 ////////////////////////////////// CALLBACKS //////////////////////////////////
 // Callback for timer 1
@@ -71,9 +67,10 @@ bool my_repeating_timer_callback2(struct repeating_timer *t )
 
 //the interrupt service routine for CAN
 void read_interrupt(uint gpio, uint32_t events) {
-  can0.readMessage(&canMsgRx);
-  data_available = true;
+  customCAN.ReadMessage();
+  customCAN.setDataAvailable(true);
 }
+
 ////////////////////////////////// SETUP //////////////////////////////////
 void setup(){
   //Identify board
@@ -98,52 +95,15 @@ void setup(){
   analogWriteResolution(12);
   Serial.begin(9600);
   Serial.setTimeout(0); //The serial communications does not need to wait on more info coming in for this use case.
-  can0.reset();
-  can0.setBitrate(CAN_1000KBPS);
-  can0.setNormalMode();
-  gpio_set_irq_enabled_with_callback(interruptPin, GPIO_IRQ_EDGE_FALL, true, &read_interrupt );
-  time_to_write = millis() + write_delay;
+  customCAN.setupCAN(&read_interrupt);
 }
 
 
 ////////////////////////////////// LOOP //////////////////////////////////
 void loop() {
-  // CAN communications
-  if( millis() >= time_to_write ) {
-    canMsgTx.can_id = node_address;
-    canMsgTx.can_dlc = 8;
-    unsigned long div = counterTx*10;
-    for( int i = 0; i < 8; i++ )
-      canMsgTx.data[7-i]='0'+((div/=10)%10);
-      noInterrupts();
-      err = can0.sendMessage(&canMsgTx);
-      interrupts();
-    if(canSend){
-      Serial.print("Sending message ");
-      Serial.print( counterTx );
-      Serial.print(" from node ");
-      Serial.println( node_address, HEX );
-    }
-    counterTx++;
-    time_to_write = millis() + write_delay;
-  }
-  if( data_available ) {
-    noInterrupts();
-    can_frame frm {canMsgRx}; //local copy
-    interrupts();
-    if(canReceive){
-      Serial.print("Received message number ");
-      Serial.print( counterRx++ );
-      Serial.print(" from node ");
-      Serial.print( frm.can_id , HEX);
-      Serial.print(" : ");
-      for (int i=0 ; i < frm.can_dlc ; i++)
-        Serial.print((char) frm.data[i]);
-      Serial.println(" ");
-    }
-    data_available = false;
-  }
   
+  customCAN.stateMachineCAN(node_address);
+
   // Serial running at 20 Hz
   if(timer2_fired){
     serialParser.serialStateMachine(); // Serial communication state machine
