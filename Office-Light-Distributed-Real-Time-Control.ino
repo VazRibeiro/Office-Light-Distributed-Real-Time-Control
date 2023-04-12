@@ -3,21 +3,13 @@
 #include "Parser.h"
 #include "Data.h"
 #include <hardware/flash.h>
-#include "can.h"
 
 // Flash
 uint8_t this_pico_flash_id[8], node_address;
 
-// CAN
-
-//CAN Mask
-
-
-
 // Class instances
 pid my_pid {0.01, 0.35, 300.7, 0.008, 0, 10, 0.01};
-Parser serialParser;
-CustomCAN customCAN;
+Parser communicationParser;
 
 // flags and auxiliary variables
 int counter {0};
@@ -29,7 +21,6 @@ bool canReceive {true};
 
 // IO
 const int LED_PIN {28};
-
 
 // Interrupts
 volatile unsigned long int timer1_time {0};
@@ -67,8 +58,8 @@ bool my_repeating_timer_callback2(struct repeating_timer *t )
 
 //the interrupt service routine for CAN
 void read_interrupt(uint gpio, uint32_t events) {
-  customCAN.ReadMessage();
-  customCAN.setDataAvailable(true);
+  communicationParser.CustomCAN::ReadMessage();
+  communicationParser.CustomCAN::setDataAvailable(true);
 }
 
 ////////////////////////////////// SETUP //////////////////////////////////
@@ -78,13 +69,13 @@ void setup(){
   node_address = this_pico_flash_id[7];
   switch(node_address){ // Set board number to be able to parse serial messages
     case 39:
-      serialParser.Data::setBoardNumber("1");
+      communicationParser.Data::setBoardNumber("1");
       break;
     case 52:
-      serialParser.Data::setBoardNumber("2");
+      communicationParser.Data::setBoardNumber("2");
       break;
     case 33:
-      serialParser.Data::setBoardNumber("3");
+      communicationParser.Data::setBoardNumber("3");
       break;
   }
   // Setup interrupts
@@ -95,18 +86,15 @@ void setup(){
   analogWriteResolution(12);
   Serial.begin(9600);
   Serial.setTimeout(0); //The serial communications does not need to wait on more info coming in for this use case.
-  customCAN.setupCAN(&read_interrupt);
+  communicationParser.CustomCAN::setupCAN(&read_interrupt);
 }
 
 
 ////////////////////////////////// LOOP //////////////////////////////////
 void loop() {
-  
-  customCAN.stateMachineCAN(node_address);
-
   // Serial running at 20 Hz
   if(timer2_fired){
-    serialParser.serialStateMachine(); // Serial communication state machine
+    communicationParser.serialCommunicationSM(); // Serial communication state machine
     timer2_fired = false;
   }
 
@@ -119,7 +107,7 @@ void loop() {
     counter = micros();
     
     // Controller
-    float r = serialParser.Data::getReference();
+    float r = communicationParser.Data::getReference();
     float y = lux;
     float v = my_pid.compute_control(r, y); //unsaturated output
     float u = my_pid.compute_control(r, y); //unsaturated output
@@ -130,11 +118,11 @@ void loop() {
 
     
     // Visualization commands
-    if(serialParser.Data::getIlluminanceStreamValues()){
-      Serial.println("s l " + serialParser.Data::getBoardNumber() + " " + lux + " " + millis());
+    if(communicationParser.Data::getIlluminanceStreamValues()){
+      Serial.println("s l " + communicationParser.Data::getBoardNumber() + " " + lux + " " + millis());
     }
-    if(serialParser.Data::getDutyCycleStreamValues()){
-      Serial.println("s d " + serialParser.Data::getBoardNumber() + " " + u/4096.0 + " " + millis());
+    if(communicationParser.Data::getDutyCycleStreamValues()){
+      Serial.println("s d " + communicationParser.Data::getBoardNumber() + " " + u/4096.0 + " " + millis());
     }
     
     // Plot controller

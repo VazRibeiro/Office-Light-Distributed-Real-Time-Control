@@ -12,11 +12,10 @@ class CustomCAN {
     
     void setupCAN(gpio_irq_callback_t callback);
     void ReadMessage();
-    void stateMachineCAN(uint8_t node_address);
-
     void setDataAvailable(bool data);
-    bool getDataAvailable() const;
-    bool getTime2Write() const;
+    void setDataReceived(bool dataReceived);
+    bool getDataReceived() const;
+    can_frame getcanMsgRx() const;
    
 
   private:
@@ -26,9 +25,11 @@ class CustomCAN {
     unsigned long time_to_write;
     unsigned long write_delay;
     volatile byte data_available;
+    bool data_received;
     const byte interruptPin;
-
+    
     MCP2515 can0 {spi0, 17, 19, 16, 18, 10000000};
 };
+
 
 #endif /* CAN_H_ */

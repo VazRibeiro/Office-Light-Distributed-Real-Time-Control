@@ -1,13 +1,14 @@
 #ifndef _MCP2515_H_
 #define _MCP2515_H_
 
+//#include "can.h"
+
 #include "hardware/spi.h"
 #include "pico/time.h"
 #include "pico/stdlib.h"
 #include "boards/pico.h"
 
 
-//can.h original
 typedef unsigned char __u8;
 typedef unsigned short __u16;
 typedef unsigned long __u32;
@@ -45,8 +46,6 @@ struct can_frame {
     __u8    can_dlc; /* frame payload length in byte (0 .. CAN_MAX_DLEN) */
     __u8    data[CAN_MAX_DLEN] __attribute__((aligned(8)));
 };
-
-
 
 
 
