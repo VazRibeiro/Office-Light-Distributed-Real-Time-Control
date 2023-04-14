@@ -15,3 +15,6 @@
 - [ ] TCP/IP and UDP demo clients
 - [ ] Console for user commands
 - [ ] Remote operation
+
+Communications scheme:
+![alt text](/images/communications.png)
