@@ -10,22 +10,21 @@ class CustomCAN {
     // Constructor
     CustomCAN();
     
-    void setupCAN(gpio_irq_callback_t callback);
+    void setupCAN(gpio_irq_callback_t callback, int boardNumber);
     void ReadMessage();
+    void SendMessage(const can_frame *msg);
     void setDataAvailable(bool data);
-    void setDataReceived(bool dataReceived);
-    bool getDataReceived() const;
+    bool getDataAvailable() const;
     can_frame getcanMsgRx() const;
    
 
   private:
-    struct can_frame canMsgTx, canMsgRx;
+    struct can_frame canMsgRx;
     unsigned long counterTx, counterRx;
     MCP2515::ERROR err;
     unsigned long time_to_write;
     unsigned long write_delay;
     volatile byte data_available;
-    bool data_received;
     const byte interruptPin;
     
     MCP2515 can0 {spi0, 17, 19, 16, 18, 10000000};

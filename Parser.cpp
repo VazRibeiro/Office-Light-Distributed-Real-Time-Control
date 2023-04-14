@@ -75,12 +75,12 @@ void Parser::serialCommunicationSM(){
 void Parser::canCommunicationSM(){
   int messageNumber = 0;
   int senderBoardNumber = 0;
-  can_frame msg = CustomCAN::getcanMsgRx();
+  can_frame msg;
   switch(canCurrentState)
   {
     case READ:
-      if (CustomCAN::getDataReceived()){
-        CustomCAN::setDataReceived(false);
+      if (CustomCAN::getDataAvailable()){
+        CustomCAN::setDataAvailable(false);
         canCurrentState = PARSE;
       }
       break;
@@ -89,13 +89,13 @@ void Parser::canCommunicationSM(){
       noInterrupts();
       msg = CustomCAN::getcanMsgRx(); //local copy
       interrupts();
-
+      
       senderBoardNumber = (msg.can_id >> 4) & 0xF; // extract the sender
       messageNumber = msg.can_id >> 8;    // shift the bits to the right by 4 to get the remaining bits
       //Debug
-      Serial.println("Board " + Data::getBoardNumber() + "received a message from " + senderBoardNumber);
+      Serial.println("Board " + Data::getBoardNumber() + " received a message from board " + String(senderBoardNumber));
 
-      if (messageNumber == COMMAND)
+      if (messageNumber == SIMPLE_COMMAND)
       {
         // Convert the data field to a char array
         char charData[msg.can_dlc + 1];
@@ -110,10 +110,11 @@ void Parser::canCommunicationSM(){
         int i = 0;
         while (word != NULL && i < MAX_WORD_LENGTH) {
           wordsCAN[i] = String(word);
+          Serial.println("Word " + String(i) + " = " + wordsCAN[i]); // Debug
           word = strtok(NULL, " "); // Get the next word
           i++;
         }
-
+        
         canCurrentState = ACTUATE;
       }
 
@@ -161,11 +162,24 @@ void Parser::parseSerialCommand(){
 
 void Parser::actuateCommand(String* wordsArray){
   float timer = micros();
+  can_frame canMsgTx;
+  // join words into a single full word and create a char array
+  // to send all the characteres in canMsgTx.data with no spaces
+  String fullCommand = "";
+  for (int i = 0; i<sizeof(wordsArray);i++){ 
+    fullCommand.concat(wordsArray[0]);
+    if (i < 2) {
+    fullCommand.concat(" "); // add space between words
+    }
+  }
+  char charArray[fullCommand.length()+1];
+  fullCommand.toCharArray(charArray, sizeof(charArray));
+
   
-  if (true)
-  {
-    // “d <i> <val>” Set duty cycle
-    if (wordsArray[0]=="d" && wordsArray[1]==Data::getBoardNumber()){
+  // “d <i> <val>” Set duty cycle
+  if (wordsArray[0]=="d"){
+    if (wordsArray[1]==Data::getBoardNumber())
+    {
       if (0<=wordsArray[2].toInt() && wordsArray[2].toInt()<=100){
         Data::setDutyCycle(wordsArray[2].toInt());
         Serial.println("ack");
@@ -175,112 +189,124 @@ void Parser::actuateCommand(String* wordsArray){
         Serial.println("err"); // Print an error message
       }
     }
-    
-    // “gd <i>” Set duty cycle
-    if (wordsArray[0]=="gd" && wordsArray[1]==Data::getBoardNumber()){
-      Serial.println("d " + wordsArray[1] + " " + Data::getDutyCycle());
+    else
+    {
+      canMsgTx.can_id = (wordsArray[1].toInt() & 0x0F) | ((Data::getBoardNumber().toInt() & 0x0F) << 4) | ((SIMPLE_COMMAND & 0x3FF) << 8);
+      canMsgTx.can_dlc = fullCommand.length();
+      Serial.println("DLC = " + String(canMsgTx.can_dlc)); // Debug
+      for (int i = 0; i<fullCommand.length(); i++){
+        canMsgTx.data[i]=fullCommand.charAt(i);
+      }
+      CustomCAN::SendMessage(&canMsgTx);
+      Serial.println("sending can id " + String(canMsgTx.can_id));
     }
-    
-    // “r <i> <val>” Set illuminance reference
-    if (wordsArray[0]=="r" && wordsArray[1]==Data::getBoardNumber()){
-      if (0<=wordsArray[2].toInt()){
-        Data::setReference(wordsArray[2].toInt());
-        Serial.println("ack");
-      }
-      else
-      {
-        Serial.println("err"); // Print an error message
-      }
-    }
-    
-    // “gr <i>” Get illuminance reference
-    if (wordsArray[0]=="gr" && wordsArray[1]==Data::getBoardNumber()){
-      Serial.println("r " + wordsArray[1] + " " + Data::getReference());
-    }
-
-    // “gl <i>” Get illuminance measured
-    if (wordsArray[0]=="gl" && wordsArray[1]==Data::getBoardNumber()){
-      Serial.println("l " + wordsArray[1] + " " + getLuminance());
-    }
-
-    // “o <i> <val>” Set occupancy state
-    if (wordsArray[0]=="o" && wordsArray[1]==Data::getBoardNumber()){
-      if (0==wordsArray[2].toInt() || 1==wordsArray[2].toInt()) {
-        Data::setOccupancy(wordsArray[2].toInt());
-        Serial.println("ack");
-      }
-      else
-      {
-        Serial.println("err"); // Print an error message
-      }
-    }
-
-    // “go <i>” Get occupancy state
-    if (wordsArray[0]=="go" && wordsArray[1]==Data::getBoardNumber()){
-      Serial.println("o " + wordsArray[1] + " o" + Data::getOccupancy());
-    }
-
-    // “a <i> <val>” Set anti-windup state
-    if (wordsArray[0]=="a" && wordsArray[1]==Data::getBoardNumber()){
-      if (0==wordsArray[2].toInt() || 1==wordsArray[2].toInt()) {
-        Data::setWindUp(wordsArray[2].toInt());
-        Serial.println("ack");
-      }
-      else
-      {
-        Serial.println("err"); // Print an error message
-      }
-    }
-
-    // “ga <i>” Get anti-windup state
-    if (wordsArray[0]=="ga" && wordsArray[1]==Data::getBoardNumber()){
-      Serial.println("a " + wordsArray[1] + " " + Data::getWindUp());
-    }
-
-    // “k <i> <val>” Set feedback state
-    if (wordsArray[0]=="k" && wordsArray[1]==Data::getBoardNumber()){
-      if (0==wordsArray[2].toInt() || 1==wordsArray[2].toInt()) {
-        Data::setFeedback(wordsArray[2].toInt());
-        Serial.println("ack");
-      }
-      else
-      {
-        Serial.println("err"); // Print an error message
-      }
-    }
-
-    // “gk <i>” Get feedback state
-    if (wordsArray[0]=="gk" && wordsArray[1]==Data::getBoardNumber()){
-      Serial.println("k " + wordsArray[1] + " " + Data::getFeedback());
-    }
-
-    // “s <x> <i>” Start stream of real-time variable
-    if (wordsArray[0]=="s" && wordsArray[2]==Data::getBoardNumber()){
-      if ("l"==wordsArray[1]) {
-        Data::setIlluminanceStreamValues(true);
-      }
-      if ("d"==wordsArray[1]) {
-        Data::setDutyCycleStreamValues(true);
-      }
-    }
-
-    // “S <x> <i>” Stop stream of real-time variable
-    if (wordsArray[0]=="S" && wordsArray[2]==Data::getBoardNumber()){
-      if ("l"==wordsArray[1]) {
-        Data::setIlluminanceStreamValues(false);
-        Serial.println("ack");
-      }
-      else if ("d"==wordsArray[1]) {
-        Data::setDutyCycleStreamValues(false);
-        Serial.println("ack");
-      }
-      else{
-        Serial.println("err");
-      }
-    }
-    
-    //count time:
-    actuationInterval = micros()-timer;
-    return;
+     
   }
+  
+  // “gd <i>” Set duty cycle
+  if (wordsArray[0]=="gd" && wordsArray[1]==Data::getBoardNumber()){
+    Serial.println("d " + wordsArray[1] + " " + Data::getDutyCycle());
+  }
+  
+  // “r <i> <val>” Set illuminance reference
+  if (wordsArray[0]=="r" && wordsArray[1]==Data::getBoardNumber()){
+    if (0<=wordsArray[2].toInt()){
+      Data::setReference(wordsArray[2].toInt());
+      Serial.println("ack");
+    }
+    else
+    {
+      Serial.println("err"); // Print an error message
+    }
+  }
+  
+  // “gr <i>” Get illuminance reference
+  if (wordsArray[0]=="gr" && wordsArray[1]==Data::getBoardNumber()){
+    Serial.println("r " + wordsArray[1] + " " + Data::getReference());
+  }
+
+  // “gl <i>” Get illuminance measured
+  if (wordsArray[0]=="gl" && wordsArray[1]==Data::getBoardNumber()){
+    Serial.println("l " + wordsArray[1] + " " + getLuminance());
+  }
+
+  // “o <i> <val>” Set occupancy state
+  if (wordsArray[0]=="o" && wordsArray[1]==Data::getBoardNumber()){
+    if (0==wordsArray[2].toInt() || 1==wordsArray[2].toInt()) {
+      Data::setOccupancy(wordsArray[2].toInt());
+      Serial.println("ack");
+    }
+    else
+    {
+      Serial.println("err"); // Print an error message
+    }
+  }
+
+  // “go <i>” Get occupancy state
+  if (wordsArray[0]=="go" && wordsArray[1]==Data::getBoardNumber()){
+    Serial.println("o " + wordsArray[1] + " o" + Data::getOccupancy());
+  }
+
+  // “a <i> <val>” Set anti-windup state
+  if (wordsArray[0]=="a" && wordsArray[1]==Data::getBoardNumber()){
+    if (0==wordsArray[2].toInt() || 1==wordsArray[2].toInt()) {
+      Data::setWindUp(wordsArray[2].toInt());
+      Serial.println("ack");
+    }
+    else
+    {
+      Serial.println("err"); // Print an error message
+    }
+  }
+
+  // “ga <i>” Get anti-windup state
+  if (wordsArray[0]=="ga" && wordsArray[1]==Data::getBoardNumber()){
+    Serial.println("a " + wordsArray[1] + " " + Data::getWindUp());
+  }
+
+  // “k <i> <val>” Set feedback state
+  if (wordsArray[0]=="k" && wordsArray[1]==Data::getBoardNumber()){
+    if (0==wordsArray[2].toInt() || 1==wordsArray[2].toInt()) {
+      Data::setFeedback(wordsArray[2].toInt());
+      Serial.println("ack");
+    }
+    else
+    {
+      Serial.println("err"); // Print an error message
+    }
+  }
+
+  // “gk <i>” Get feedback state
+  if (wordsArray[0]=="gk" && wordsArray[1]==Data::getBoardNumber()){
+    Serial.println("k " + wordsArray[1] + " " + Data::getFeedback());
+  }
+
+  // “s <x> <i>” Start stream of real-time variable
+  if (wordsArray[0]=="s" && wordsArray[2]==Data::getBoardNumber()){
+    if ("l"==wordsArray[1]) {
+      Data::setIlluminanceStreamValues(true);
+    }
+    if ("d"==wordsArray[1]) {
+      Data::setDutyCycleStreamValues(true);
+    }
+  }
+
+  // “S <x> <i>” Stop stream of real-time variable
+  if (wordsArray[0]=="S" && wordsArray[2]==Data::getBoardNumber()){
+    if ("l"==wordsArray[1]) {
+      Data::setIlluminanceStreamValues(false);
+      Serial.println("ack");
+    }
+    else if ("d"==wordsArray[1]) {
+      Data::setDutyCycleStreamValues(false);
+      Serial.println("ack");
+    }
+    else{
+      Serial.println("err");
+    }
+  }
+  
+  //count time:
+  actuationInterval = micros()-timer;
+  return;
 }

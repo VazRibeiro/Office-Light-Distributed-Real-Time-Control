@@ -13,10 +13,10 @@ class Parser : public Data, public CustomCAN {
   
   private:
     enum serialState {READ , PARSE, ACTUATE};
-    enum canMessageType {WAKE_UP, COMMAND};
+    enum canMessageType {WAKE_UP, SIMPLE_COMMAND,LONG_COMMAND,RESTART};
     serialState serialCurrentState;
     serialState canCurrentState;
-    static const int MAX_MESSAGE_LENGTH = 20; // Maximum allowed message length
+    static const int MAX_MESSAGE_LENGTH = 15; // Maximum allowed message length
     static const int MAX_WORD_LENGTH = 4; // Maximum allowed message length
     String serialMessage; //raw message
     static String wordsSerial[MAX_WORD_LENGTH]; //array of words used in serial comms

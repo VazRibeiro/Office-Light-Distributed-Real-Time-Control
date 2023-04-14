@@ -12,6 +12,7 @@ pid my_pid {0.01, 0.35, 300.7, 0.008, 0, 10, 0.01};
 Parser communicationParser;
 
 // flags and auxiliary variables
+bool deadlockLED {true};
 int counter {0};
 int period {0};
 bool plotJitter {false};
@@ -82,11 +83,12 @@ void setup(){
   add_repeating_timer_ms( 10,my_repeating_timer_callback1,NULL, &timer1); //100 Hz interrupt
   add_repeating_timer_ms( 50,my_repeating_timer_callback2,NULL, &timer2); //20 Hz interrupt
   pinMode(LED_PIN, OUTPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
   analogReadResolution(12);
   analogWriteResolution(12);
   Serial.begin(9600);
   Serial.setTimeout(0); //The serial communications does not need to wait on more info coming in for this use case.
-  communicationParser.CustomCAN::setupCAN(&read_interrupt);
+  communicationParser.CustomCAN::setupCAN(&read_interrupt, atoi(communicationParser.Data::getBoardNumber().c_str()));
 }
 
 
@@ -94,13 +96,23 @@ void setup(){
 void loop() {
   // Serial running at 20 Hz
   if(timer2_fired){
+    if(deadlockLED){
+      digitalWrite(LED_BUILTIN, HIGH);
+      deadlockLED = false;
+    }
+    else
+    {
+      digitalWrite(LED_BUILTIN, LOW);
+      deadlockLED = true;
+    }
+    
     communicationParser.serialCommunicationSM(); // Serial communication state machine
     timer2_fired = false;
   }
 
   // Control running at 100 Hz
   if(timer1_fired){
-    
+    communicationParser.canCommunicationSM(); // CAN communication state machine
     double lux;
     lux = getLuminance();// Read voltage
     period = micros()-counter;// period to calculate jitter
