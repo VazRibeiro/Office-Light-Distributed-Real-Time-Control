@@ -16,5 +16,6 @@
 - [ ] Console for user commands
 - [ ] Remote operation
 
-Communications scheme:
+# Communications scheme
+
 ![alt text](/images/communications.png)
