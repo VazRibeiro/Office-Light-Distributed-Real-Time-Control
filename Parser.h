@@ -29,7 +29,9 @@ class Parser : public Data, public CustomCAN {
 
     void readSerialCommand();
     void parseSerialCommand(); //parses from a full string to an array of strings
-    void parseCANCommand();
+    void parseSimpleCommand(can_frame msg);
+    String redoCommand(String* wordsArray);
+    bool trySetDutyCycle(String* wordsArray, String fullCommand);
     void actuateCommand(String* wordsArray); //Sets flags and executes getters
 };
 

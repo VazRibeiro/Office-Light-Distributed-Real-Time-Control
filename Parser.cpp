@@ -77,8 +77,8 @@ void Parser::canCommunicationSM(){
   int messageNumber = 0;
   int senderBoardNumber = 0;
   can_frame msg;
-  switch(canCurrentState)
-  {
+  
+  switch(canCurrentState){
     case READ:
       if (CustomCAN::getDataAvailable()){
         CustomCAN::setDataAvailable(false);
@@ -90,37 +90,21 @@ void Parser::canCommunicationSM(){
       noInterrupts();
       msg = CustomCAN::getcanMsgRx(); //local copy
       interrupts();
-      
       receiverBoardNumber = msg.can_id & 0xF;
       senderBoardNumber = (msg.can_id >> 4) & 0xF; // extract the sender
       messageNumber = msg.can_id >> 8;    // shift the bits to the right by 4 to get the remaining bits
       //Debug
       Serial.println("Board " + String(receiverBoardNumber) + " (" +Data::getBoardNumber()+")"+ " received a message from board " + String(senderBoardNumber));
-
-      if (messageNumber == SIMPLE_COMMAND)
-      {
-        // Convert the data field to a char array
-        char charData[msg.can_dlc + 1];
-        for (int i = 0; i < msg.can_dlc; i++) {
-            Serial.println((char)msg.data[i]);
-            charData[i] = (char) msg.data[i];
-        }
-        charData[msg.can_dlc] = '\0'; // Null-terminate the char array
-
-        char* word = strtok(charData, " "); // Split the message at space characters and get the first word
-        
-        // Save each word to an array
-        int i = 0;
-        while (word != NULL && i < MAX_WORD_LENGTH) {
-          wordsCAN[i] = String(word);
-          Serial.println("Word " + String(i) + " = " + wordsCAN[i]); // Debug
-          word = strtok(NULL, " "); // Get the next word
-          i++;
-        }
-        
-        canCurrentState = ACTUATE;
+      switch (messageNumber){
+        case SIMPLE_COMMAND:
+          parseSimpleCommand(msg);
+          break;
+        case LONG_COMMAND:
+          break;
+        case RESTART:
+          break;
       }
-
+      canCurrentState = ACTUATE;
       break;
 
     case ACTUATE:
@@ -163,9 +147,29 @@ void Parser::parseSerialCommand(){
 }
 
 
-void Parser::actuateCommand(String* wordsArray){
-  float timer = micros();
-  can_frame canMsgTx;
+void Parser::parseSimpleCommand(can_frame msg){
+  // Convert the data field to a char array
+  char charData[msg.can_dlc + 1];
+  for (int i = 0; i < msg.can_dlc; i++) {
+    Serial.println((char)msg.data[i]);
+    charData[i] = (char) msg.data[i];
+  }
+  charData[msg.can_dlc] = '\0'; // Null-terminate the char array
+
+  char* word = strtok(charData, " "); // Split the message at space characters and get the first word
+  
+  // Save each word to an array
+  int i = 0;
+  while (word != NULL && i < MAX_WORD_LENGTH) {
+    wordsCAN[i] = String(word);
+    Serial.println("Word " + String(i) + " = " + wordsCAN[i]); // Debug
+    word = strtok(NULL, " "); // Get the next word
+    i++;
+  }
+}
+
+
+String Parser::redoCommand(String* wordsArray){
   // join words into a single full word and create a char array
   // to send all the characteres in canMsgTx.data with no spaces
   String fullCommand = "";
@@ -179,25 +183,67 @@ void Parser::actuateCommand(String* wordsArray){
       }
     }
   }
-  char charArray[fullCommand.length()+1];
-  fullCommand.toCharArray(charArray, sizeof(charArray));
-  
+  return fullCommand;
+}
+
+
+bool Parser::trySetDutyCycle(String* wordsArray, String fullCommand){
   // “d <i> <val>” Set duty cycle
   if (wordsArray[0]=="d"){
-    if (wordsArray[1]==Data::getBoardNumber()){
-      if (0<=wordsArray[2].toInt() && wordsArray[2].toInt()<=100){
-        Data::setDutyCycle(wordsArray[2].toInt());
-        Serial.println("ack"); // Acknowledge
+    // Check if there are non numeric values in the <val> field
+    bool valContainsNonNumeric = false;
+    for (int i = 0; i < wordsArray[2].length(); i++){
+      if (!isDigit(wordsArray[2].charAt(i))) {
+        valContainsNonNumeric = true;
+        break;
       }
-      else {
-        Serial.println("err"); // Print an error message
+    }
+    // Check if there are non numeric values in the <i> field
+    bool iContainsNonNumeric = false;
+    for (int i = 0; i < wordsArray[1].length(); i++){
+      if (!isDigit(wordsArray[1].charAt(i))) {
+        iContainsNonNumeric = true;
+        break;
       }
+    }
+    // Check numebr of words
+    int numWords = 1;
+    for (int i = 0; i < fullCommand.length(); i++) {
+      if (fullCommand.charAt(i) == ' ') {
+        numWords++;
+      }
+    }
+    
+    // VERIFICATIONS: ERRORS, ACKNOWLEDGE or SEND VIA CAN
+    if (valContainsNonNumeric)
+    {
+      Serial.println("err - Not a numeric value in <val> field."); 
+    }
+    else if (iContainsNonNumeric)
+    {
+      Serial.println("err - Not a numeric value in <i> field."); 
+    }
+    else if (numWords != 3)
+    {
+      Serial.println("err - Expected only 3 words.");
+      for (size_t i = 0; i < sizeof(wordsArray); i++)
+      {
+        Serial.println("word " + String(i) + " = " + wordsArray[i]);
+      }
+    }
+    else if (0>wordsArray[2].toInt() || wordsArray[2].toInt()>100){
+      Serial.println("err - Not a valid duty cycle (try 0-100)."); 
     }
     else if(wordsArray[1].toInt()>MAX_BOARDS || wordsArray[1].toInt()<=0){
-      // SOME RESPONSE
-      Serial.println("no no no..."); // Print an error message
+      Serial.println("err - Not a valid board number."); 
     }
-    else {  
+    else if (wordsArray[1]==Data::getBoardNumber())
+    {
+      Data::setDutyCycle(wordsArray[2].toInt());
+      Serial.println("ack"); // Acknowledge
+    }
+    else {
+      can_frame canMsgTx;
       canMsgTx.can_id = (wordsArray[1].toInt() & 0x0F) | ((Data::getBoardNumber().toInt() & 0x0F) << 4) | ((SIMPLE_COMMAND & 0x3FF) << 8);
       canMsgTx.can_dlc = fullCommand.length();
       Serial.println("DLC = " + String(canMsgTx.can_dlc)); // Debug
@@ -208,9 +254,23 @@ void Parser::actuateCommand(String* wordsArray){
       CustomCAN::SendMessage(&canMsgTx);
       Serial.println("sending can id " + String(canMsgTx.can_id));
     }
+
+    return true;
   }
-  
-  // “gd <i>” Set duty cycle
+  return false;
+}
+
+
+void Parser::actuateCommand(String* wordsArray){
+  float timer = micros();
+  String fullCommand = redoCommand(wordsArray);
+  Serial.println("I happen before trySetDutyCycle");
+  // “d <i> <val>” Set duty cycle
+  if (trySetDutyCycle(wordsArray, fullCommand)){
+    return;
+  }
+  Serial.println("I happen after trySetDutyCycle");
+  // “gd <i>” Get duty cycle
   if (wordsArray[0]=="gd" && wordsArray[1]==Data::getBoardNumber()){
     Serial.println("d " + wordsArray[1] + " " + Data::getDutyCycle());
   }
