@@ -39,6 +39,7 @@ void Parser::serialCommunicationSM(){
       break;
     
     case ACTUATE:
+      source = SERIAL_INPUT;
       actuateCommand(wordsSerial);
     
       // write the command back to the user for debug
@@ -73,9 +74,6 @@ void Parser::serialCommunicationSM(){
 
 
 void Parser::canCommunicationSM(){
-  int receiverBoardNumber = 0;
-  int messageNumber = 0;
-  int senderBoardNumber = 0;
   can_frame msg;
   
   switch(canCurrentState){
@@ -95,11 +93,15 @@ void Parser::canCommunicationSM(){
       messageNumber = msg.can_id >> 8;    // shift the bits to the right by 4 to get the remaining bits
       //Debug
       Serial.println("Board " + String(receiverBoardNumber) + " (" +Data::getBoardNumber()+")"+ " received a message from board " + String(senderBoardNumber));
+      
       switch (messageNumber){
         case SIMPLE_COMMAND:
           parseSimpleCommand(msg);
           break;
         case LONG_COMMAND:
+          break;
+        case ACKNOWLEDGE:
+          Serial.println("ack"); // Acknowledge
           break;
         case RESTART:
           break;
@@ -108,6 +110,7 @@ void Parser::canCommunicationSM(){
       break;
 
     case ACTUATE:
+      source = CAN_INPUT;
       actuateCommand(wordsCAN);
 
       for (int i = 0; i < MAX_WORD_LENGTH; i++) {
@@ -240,21 +243,30 @@ bool Parser::trySetDutyCycle(String* wordsArray, String fullCommand){
     else if (wordsArray[1]==Data::getBoardNumber())
     {
       Data::setDutyCycle(wordsArray[2].toInt());
-      Serial.println("ack"); // Acknowledge
+      if (source==SERIAL_INPUT)
+      {
+        Serial.println("ack"); // Acknowledge
+      }
+      else if (source==CAN_INPUT)
+      {
+        can_frame canMsgTx;
+        canMsgTx.can_id = (senderBoardNumber & 0x0F) | ((Data::getBoardNumber().toInt() & 0x0F) << 4) | ((ACKNOWLEDGE & 0x3FF) << 8);
+        canMsgTx.can_dlc = 0;
+        CustomCAN::SendMessage(&canMsgTx);
+      }
     }
-    else {
+    else if(source==SERIAL_INPUT){
       can_frame canMsgTx;
       canMsgTx.can_id = (wordsArray[1].toInt() & 0x0F) | ((Data::getBoardNumber().toInt() & 0x0F) << 4) | ((SIMPLE_COMMAND & 0x3FF) << 8);
       canMsgTx.can_dlc = fullCommand.length();
-      Serial.println("DLC = " + String(canMsgTx.can_dlc)); // Debug
-      Serial.println("fullcommand = " + fullCommand); // Debug
+      //Serial.println("DLC = " + String(canMsgTx.can_dlc)); // Debug
+      //Serial.println("fullcommand = " + fullCommand); // Debug
       for (int i = 0; i<fullCommand.length(); i++){
         canMsgTx.data[i]=fullCommand.charAt(i);
       }
       CustomCAN::SendMessage(&canMsgTx);
-      Serial.println("sending can id " + String(canMsgTx.can_id));
+      //Serial.println("sending can id " + String(canMsgTx.can_id));
     }
-
     return true;
   }
   return false;
@@ -264,12 +276,12 @@ bool Parser::trySetDutyCycle(String* wordsArray, String fullCommand){
 void Parser::actuateCommand(String* wordsArray){
   float timer = micros();
   String fullCommand = redoCommand(wordsArray);
-  Serial.println("I happen before trySetDutyCycle");
+
   // “d <i> <val>” Set duty cycle
   if (trySetDutyCycle(wordsArray, fullCommand)){
     return;
   }
-  Serial.println("I happen after trySetDutyCycle");
+  
   // “gd <i>” Get duty cycle
   if (wordsArray[0]=="gd" && wordsArray[1]==Data::getBoardNumber()){
     Serial.println("d " + wordsArray[1] + " " + Data::getDutyCycle());
