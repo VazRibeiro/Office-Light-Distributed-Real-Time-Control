@@ -5,8 +5,8 @@
 class Data {
 private:
   String boardNumber;
-  int dutyCycle;
-  int reference;
+  float dutyCycle;
+  float reference;
   bool occupancy;
   bool windUp;
   bool feedback;

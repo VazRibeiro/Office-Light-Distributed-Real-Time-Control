@@ -15,7 +15,7 @@ Parser::Parser()
     actuationInterval(0)
 { }
 
-
+// Serial communications state machine
 void Parser::serialCommunicationSM(){
   switch(serialCurrentState)
   {
@@ -72,7 +72,7 @@ void Parser::serialCommunicationSM(){
   }
 }
 
-
+// CAN communications state machine
 void Parser::canCommunicationSM(){
   can_frame msg;
   
@@ -123,7 +123,7 @@ void Parser::canCommunicationSM(){
   }
 }
 
-
+// Read serial when available
 void Parser::readSerialCommand(){
   float timer = micros();
   serialMessage = Serial.readStringUntil('\n'); // Read the incoming message
@@ -133,7 +133,7 @@ void Parser::readSerialCommand(){
   return;
 }
 
-
+// Parse the command received from serial
 void Parser::parseSerialCommand(){
   float timer = micros();
   // Split the message into words
@@ -152,7 +152,7 @@ void Parser::parseSerialCommand(){
   return;
 }
 
-
+// parse CAN commands sent from the hub board
 void Parser::parseSimpleCommand(can_frame msg){
   // Convert the data field to a char array
   char charData[msg.can_dlc + 1];
@@ -173,7 +173,7 @@ void Parser::parseSimpleCommand(can_frame msg){
   }
 }
 
-
+// parse CAN responses sent when a sucessfull command was completed
 void Parser::parseSimpleGetResponse(can_frame msg){
   // Convert the data field to a char array
   char charData[msg.can_dlc + 1];
@@ -186,7 +186,7 @@ void Parser::parseSimpleGetResponse(can_frame msg){
   Serial.println(String(charData));
 }
 
-
+// Reconstruct the command string using the words array
 String Parser::redoCommand(String* wordsArray){
   // join words into a single full word and create a char array
   // to send all the characteres in canMsgTx.data with no spaces
@@ -204,7 +204,8 @@ String Parser::redoCommand(String* wordsArray){
   return fullCommand;
 }
 
-
+// Check if the command is d <i> <val>. If it is, check errors and
+// destination, then execute it and send a response or reroute it.
 bool Parser::trySetDutyCycle(String* wordsArray, String fullCommand){
   // “d <i> <val>” Set duty cycle
   if (wordsArray[0]=="d"){
@@ -287,7 +288,8 @@ bool Parser::trySetDutyCycle(String* wordsArray, String fullCommand){
   return false;
 }
 
-
+// Check if the command is g d <i>. If it is, check errors and
+// destination, then execute it and send a response or reroute it.
 bool Parser::tryGetDutyCycle(String* wordsArray, String fullCommand){
   // “g d <i>” Get duty cycle
   if (wordsArray[0]=="g" && wordsArray[1]=="d"){
@@ -355,7 +357,7 @@ bool Parser::tryGetDutyCycle(String* wordsArray, String fullCommand){
   return false;
 }
 
-
+// Checks the commands for a match
 void Parser::actuateCommand(String* wordsArray){
   float timer = micros();
   String fullCommand = redoCommand(wordsArray);
