@@ -22,6 +22,7 @@ class Parser : public Data, public CustomCAN {
       WAKE_UP,
       SIMPLE_COMMAND,
       LONG_COMMAND,
+      SIMPLE_GET_RESPONSE,
       ACKNOWLEDGE,
       RESTART
     };
@@ -55,8 +56,10 @@ class Parser : public Data, public CustomCAN {
     void readSerialCommand();
     void parseSerialCommand(); //parses from a full string to an array of strings
     void parseSimpleCommand(can_frame msg);
+    void parseSimpleGetResponse(can_frame msg);
     String redoCommand(String* wordsArray);
     bool trySetDutyCycle(String* wordsArray, String fullCommand);
+    bool tryGetDutyCycle(String* wordsArray, String fullCommand);
     void actuateCommand(String* wordsArray); //Sets flags and executes getters
 };
 

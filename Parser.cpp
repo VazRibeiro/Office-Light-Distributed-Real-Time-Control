@@ -103,6 +103,9 @@ void Parser::canCommunicationSM(){
         case ACKNOWLEDGE:
           Serial.println("ack"); // Acknowledge
           break;
+        case SIMPLE_GET_RESPONSE:
+          parseSimpleGetResponse(msg);
+          break;
         case RESTART:
           break;
       }
@@ -154,7 +157,6 @@ void Parser::parseSimpleCommand(can_frame msg){
   // Convert the data field to a char array
   char charData[msg.can_dlc + 1];
   for (int i = 0; i < msg.can_dlc; i++) {
-    Serial.println((char)msg.data[i]);
     charData[i] = (char) msg.data[i];
   }
   charData[msg.can_dlc] = '\0'; // Null-terminate the char array
@@ -169,6 +171,19 @@ void Parser::parseSimpleCommand(can_frame msg){
     word = strtok(NULL, " "); // Get the next word
     i++;
   }
+}
+
+
+void Parser::parseSimpleGetResponse(can_frame msg){
+  // Convert the data field to a char array
+  char charData[msg.can_dlc + 1];
+  for (int i = 0; i < msg.can_dlc; i++)
+  {
+    charData[i] = (char) msg.data[i];
+  }
+  charData[msg.can_dlc] = '\0'; // Null-terminate the char array
+
+  Serial.println(String(charData));
 }
 
 
@@ -273,6 +288,74 @@ bool Parser::trySetDutyCycle(String* wordsArray, String fullCommand){
 }
 
 
+bool Parser::tryGetDutyCycle(String* wordsArray, String fullCommand){
+  // “g d <i>” Get duty cycle
+  if (wordsArray[0]=="g" && wordsArray[1]=="d"){
+    // Check if there are non numeric values in the <i> field
+    bool iContainsNonNumeric = false;
+    for (int i = 0; i < wordsArray[2].length(); i++){
+      if (!isDigit(wordsArray[2].charAt(i))) {
+        iContainsNonNumeric = true;
+        break;
+      }
+    }
+    // Check number of words
+    int numWords = 1;
+    for (int i = 0; i < fullCommand.length(); i++) {
+      if (fullCommand.charAt(i) == ' ') {
+        numWords++;
+      }
+    }
+    
+    // VERIFICATIONS: ERRORS, ACKNOWLEDGE/GET VALUE or SEND COMMAND VIA CAN
+    if (iContainsNonNumeric)
+    {
+      Serial.println("err - Not a numeric value in <i> field."); // err
+    }
+    else if (numWords != 3)
+    {
+      Serial.println("err - Expected only 3 words."); // err
+    }
+    else if(wordsArray[2].toInt()>MAX_BOARDS || wordsArray[2].toInt()<=0)
+    {
+      Serial.println("err - Not a valid board number."); // err
+    }
+    else if (wordsArray[2]==Data::getBoardNumber() && source==SERIAL_INPUT)
+    {
+      Serial.println("d " + wordsArray[2] + " " + String(Data::getDutyCycle()));  // d <i> <val>
+    }
+    else if (wordsArray[2]==Data::getBoardNumber() && source==CAN_INPUT)
+    { //Response via CAN to the hub
+      can_frame canMsgTx;
+      String response = fullCommand;
+      response.remove(0,2);
+      response.concat(" " +String(Data::getDutyCycle()));
+      canMsgTx.can_id = (senderBoardNumber & 0x0F) | ((Data::getBoardNumber().toInt() & 0x0F) << 4) | ((SIMPLE_GET_RESPONSE & 0x3FF) << 8);
+      canMsgTx.can_dlc = response.length();
+      for (int i = 0; i<response.length(); i++){
+        canMsgTx.data[i]=response.charAt(i);
+      }
+      CustomCAN::SendMessage(&canMsgTx);
+    }
+    else if(source==SERIAL_INPUT)
+    { // Reroute via CAN to the proper board
+      can_frame canMsgTx;
+      canMsgTx.can_id = (wordsArray[2].toInt() & 0x0F) | ((Data::getBoardNumber().toInt() & 0x0F) << 4) | ((SIMPLE_COMMAND & 0x3FF) << 8);
+      canMsgTx.can_dlc = fullCommand.length();
+      //Serial.println("DLC = " + String(canMsgTx.can_dlc)); // Debug
+      //Serial.println("fullcommand = " + fullCommand); // Debug
+      for (int i = 0; i<fullCommand.length(); i++){
+        canMsgTx.data[i]=fullCommand.charAt(i);
+      }
+      CustomCAN::SendMessage(&canMsgTx);
+      //Serial.println("sending can id " + String(canMsgTx.can_id));
+    }
+    return true;
+  }
+  return false;
+}
+
+
 void Parser::actuateCommand(String* wordsArray){
   float timer = micros();
   String fullCommand = redoCommand(wordsArray);
@@ -282,9 +365,9 @@ void Parser::actuateCommand(String* wordsArray){
     return;
   }
   
-  // “gd <i>” Get duty cycle
-  if (wordsArray[0]=="gd" && wordsArray[1]==Data::getBoardNumber()){
-    Serial.println("d " + wordsArray[1] + " " + Data::getDutyCycle());
+  // “g d <i>” Get duty cycle
+  if (tryGetDutyCycle(wordsArray, fullCommand)){
+    return;
   }
   
   // “r <i> <val>” Set illuminance reference
