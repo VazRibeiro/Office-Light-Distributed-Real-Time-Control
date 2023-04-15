@@ -73,6 +73,7 @@ void Parser::serialCommunicationSM(){
 
 
 void Parser::canCommunicationSM(){
+  int receiverBoardNumber = 0;
   int messageNumber = 0;
   int senderBoardNumber = 0;
   can_frame msg;
@@ -90,16 +91,18 @@ void Parser::canCommunicationSM(){
       msg = CustomCAN::getcanMsgRx(); //local copy
       interrupts();
       
+      receiverBoardNumber = msg.can_id & 0xF;
       senderBoardNumber = (msg.can_id >> 4) & 0xF; // extract the sender
       messageNumber = msg.can_id >> 8;    // shift the bits to the right by 4 to get the remaining bits
       //Debug
-      Serial.println("Board " + Data::getBoardNumber() + " received a message from board " + String(senderBoardNumber));
+      Serial.println("Board " + String(receiverBoardNumber) + " (" +Data::getBoardNumber()+")"+ " received a message from board " + String(senderBoardNumber));
 
       if (messageNumber == SIMPLE_COMMAND)
       {
         // Convert the data field to a char array
         char charData[msg.can_dlc + 1];
         for (int i = 0; i < msg.can_dlc; i++) {
+            Serial.println((char)msg.data[i]);
             charData[i] = (char) msg.data[i];
         }
         charData[msg.can_dlc] = '\0'; // Null-terminate the char array
@@ -166,41 +169,45 @@ void Parser::actuateCommand(String* wordsArray){
   // join words into a single full word and create a char array
   // to send all the characteres in canMsgTx.data with no spaces
   String fullCommand = "";
-  for (int i = 0; i<sizeof(wordsArray);i++){ 
-    fullCommand.concat(wordsArray[0]);
-    if (i < 2) {
-    fullCommand.concat(" "); // add space between words
+  for (int i = 0; i<sizeof(wordsArray);i++){
+    if (wordsArray[i] != "")
+    {
+      fullCommand.concat(wordsArray[i]);
+      if (i<sizeof(wordsArray)-1 && wordsArray[i+1]!="")
+      {
+        fullCommand.concat(" "); // add space between words
+      }
     }
   }
   char charArray[fullCommand.length()+1];
   fullCommand.toCharArray(charArray, sizeof(charArray));
-
   
   // “d <i> <val>” Set duty cycle
   if (wordsArray[0]=="d"){
-    if (wordsArray[1]==Data::getBoardNumber())
-    {
+    if (wordsArray[1]==Data::getBoardNumber()){
       if (0<=wordsArray[2].toInt() && wordsArray[2].toInt()<=100){
         Data::setDutyCycle(wordsArray[2].toInt());
-        Serial.println("ack");
+        Serial.println("ack"); // Acknowledge
       }
-      else
-      {
+      else {
         Serial.println("err"); // Print an error message
       }
     }
-    else
-    {
+    else if(wordsArray[1].toInt()>MAX_BOARDS || wordsArray[1].toInt()<=0){
+      // SOME RESPONSE
+      Serial.println("no no no..."); // Print an error message
+    }
+    else {  
       canMsgTx.can_id = (wordsArray[1].toInt() & 0x0F) | ((Data::getBoardNumber().toInt() & 0x0F) << 4) | ((SIMPLE_COMMAND & 0x3FF) << 8);
       canMsgTx.can_dlc = fullCommand.length();
       Serial.println("DLC = " + String(canMsgTx.can_dlc)); // Debug
+      Serial.println("fullcommand = " + fullCommand); // Debug
       for (int i = 0; i<fullCommand.length(); i++){
         canMsgTx.data[i]=fullCommand.charAt(i);
       }
       CustomCAN::SendMessage(&canMsgTx);
       Serial.println("sending can id " + String(canMsgTx.can_id));
     }
-     
   }
   
   // “gd <i>” Set duty cycle

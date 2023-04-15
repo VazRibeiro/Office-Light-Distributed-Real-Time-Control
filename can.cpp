@@ -15,6 +15,9 @@ void CustomCAN::setupCAN(gpio_irq_callback_t callback, int boardNumber){
     can0.setFilterMask(MCP2515::MASK0, 0, 0x0000000F);
     can0.setFilter(MCP2515::RXF0, 0, 0);
     can0.setFilter(MCP2515::RXF1, 0, boardNumber);
+    can0.setFilterMask(MCP2515::MASK1, 0, 0x0000000F);
+    can0.setFilter(MCP2515::RXF2, 0, 0);
+    can0.setFilter(MCP2515::RXF3, 0, boardNumber);
     can0.setNormalMode();
     gpio_set_irq_enabled_with_callback(interruptPin, GPIO_IRQ_EDGE_FALL, true, callback);
     time_to_write = millis() + write_delay;
