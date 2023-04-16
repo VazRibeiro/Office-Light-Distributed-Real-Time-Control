@@ -7,8 +7,8 @@
 - [x] Timer interrupts
 - [ ] Buffer
 - [ ] Metrics
-- [ ] CAN
-- [ ] Hub mode
+- [x] CAN
+- [x] Hub mode
 - [ ] Wake up
 - [ ] Calibration
 - [ ] Decentralized control
@@ -18,4 +18,23 @@
 
 # Communications scheme
 
+
 ![alt text](/images/communications.png)
+
+## can_id
+Message type | Sender | Receiver
+:------------ | :-------------| :-------------
+5 bits | 12 bits |  12 bits 
+
+## List of commands
+Command | Status | Response | Status
+:------------ | :-------------| :-------------| :-------------
+d <i> <val> | :heavy_check_mark: |  “ack” or “err” | :heavy_check_mark:
+:------------ | :-------------| :-------------| :-------------
+g d <i> | :heavy_check_mark: |  d <i> <val> | :heavy_check_mark:
+:------------ | :-------------| :-------------| :-------------
+r <i> <val> | :heavy_check_mark: |  “ack” or “err” | :heavy_check_mark:
+:------------ | :-------------| :-------------| :-------------
+g r <i> | :white_check_mark: |  r <i> <val> | :white_check_mark:
+:------------ | :-------------| :-------------| :-------------
+g l <i> | :white_check_mark: |  l <i> <val> | :white_check_mark:
