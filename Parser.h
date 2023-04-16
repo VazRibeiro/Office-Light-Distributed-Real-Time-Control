@@ -21,7 +21,7 @@ class Parser : public Data, public CustomCAN {
     enum canMessageType {
       WAKE_UP,
       SIMPLE_COMMAND,
-      LONG_COMMAND,
+      FLOAT_COMMAND,
       SIMPLE_GET_RESPONSE,
       ACKNOWLEDGE,
       RESTART
@@ -38,6 +38,9 @@ class Parser : public Data, public CustomCAN {
     static const int MAX_MESSAGE_LENGTH = 20; // Maximum allowed message length
     static const int MAX_WORD_LENGTH = 4; // Maximum allowed message length
     static const int MAX_BOARDS = 3; // Maximum board number
+    static const int BOARD_NUMBER_BITS = 12;  // Number of board identifying bits.
+    static const int FILTER_BOARD_NUMBER = 0x0FFF;  // Comparison bits for decoding can id;
+    static const int FILTER_MESSAGE_TYPE = 0x1F;  // Comparison bits for decoding can id;
 
     // Communications variables
     String serialMessage; //raw message
@@ -60,6 +63,7 @@ class Parser : public Data, public CustomCAN {
     String redoCommand(String* wordsArray);
     bool trySetDutyCycle(String* wordsArray, String fullCommand);
     bool tryGetDutyCycle(String* wordsArray, String fullCommand);
+    bool trySetReference(String* wordsArray, String fullCommand);
     void actuateCommand(String* wordsArray); //Sets flags and executes getters
 };
 

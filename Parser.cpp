@@ -15,6 +15,7 @@ Parser::Parser()
     actuationInterval(0)
 { }
 
+
 // Serial communications state machine
 void Parser::serialCommunicationSM(){
   switch(serialCurrentState)
@@ -72,6 +73,7 @@ void Parser::serialCommunicationSM(){
   }
 }
 
+
 // CAN communications state machine
 void Parser::canCommunicationSM(){
   can_frame msg;
@@ -88,17 +90,34 @@ void Parser::canCommunicationSM(){
       noInterrupts();
       msg = CustomCAN::getcanMsgRx(); //local copy
       interrupts();
-      receiverBoardNumber = msg.can_id & 0xF;
-      senderBoardNumber = (msg.can_id >> 4) & 0xF; // extract the sender
-      messageNumber = msg.can_id >> 8;    // shift the bits to the right by 4 to get the remaining bits
+      receiverBoardNumber = msg.can_id & FILTER_BOARD_NUMBER;                      // extract the receiver
+      senderBoardNumber = (msg.can_id >> BOARD_NUMBER_BITS) & FILTER_BOARD_NUMBER; // extract the sender
+      messageNumber = (msg.can_id >> (2*BOARD_NUMBER_BITS)) & FILTER_MESSAGE_TYPE;   // extract the message type
+
       //Debug
-      Serial.println("Board " + String(receiverBoardNumber) + " (" +Data::getBoardNumber()+")"+ " received a message from board " + String(senderBoardNumber));
+      Serial.println("Board " + String(receiverBoardNumber) +
+                    " received a message from board " + String(senderBoardNumber) +
+                    " of type " + String(messageNumber));
       
       switch (messageNumber){
+        case WAKE_UP:
+          Serial.println("Entered wake up...");
+          break;
         case SIMPLE_COMMAND:
           parseSimpleCommand(msg);
           break;
-        case LONG_COMMAND:
+        case FLOAT_COMMAND:
+          float value;
+          memcpy(&value,&msg.data[1],sizeof(value));
+          wordsCAN[0] = String(msg.data[0]);
+          wordsCAN[1] = String(receiverBoardNumber);
+          wordsCAN[2] = String(msg.data[0]);
+
+          for (size_t i = 0; i < sizeof(wordsCAN); i++)
+          {
+            Serial.println("Word " + String(i) + " = " + String(wordsCAN[i]));
+          }
+          
           break;
         case ACKNOWLEDGE:
           Serial.println("ack"); // Acknowledge
@@ -123,6 +142,7 @@ void Parser::canCommunicationSM(){
   }
 }
 
+
 // Read serial when available
 void Parser::readSerialCommand(){
   float timer = micros();
@@ -132,6 +152,7 @@ void Parser::readSerialCommand(){
   readInterval = micros()-timer;
   return;
 }
+
 
 // Parse the command received from serial
 void Parser::parseSerialCommand(){
@@ -151,6 +172,7 @@ void Parser::parseSerialCommand(){
   parseInterval = micros()-timer;
   return;
 }
+
 
 // parse CAN commands sent from the hub board
 void Parser::parseSimpleCommand(can_frame msg){
@@ -173,6 +195,7 @@ void Parser::parseSimpleCommand(can_frame msg){
   }
 }
 
+
 // parse CAN responses sent when a sucessfull command was completed
 void Parser::parseSimpleGetResponse(can_frame msg){
   // Convert the data field to a char array
@@ -185,6 +208,7 @@ void Parser::parseSimpleGetResponse(can_frame msg){
 
   Serial.println(String(charData));
 }
+
 
 // Reconstruct the command string using the words array
 String Parser::redoCommand(String* wordsArray){
@@ -203,6 +227,7 @@ String Parser::redoCommand(String* wordsArray){
   }
   return fullCommand;
 }
+
 
 // Check if the command is d <i> <val>. If it is, check errors and
 // destination, then execute it and send a response or reroute it.
@@ -225,7 +250,7 @@ bool Parser::trySetDutyCycle(String* wordsArray, String fullCommand){
         break;
       }
     }
-    // Check numebr of words
+    // Check number of words
     int numWords = 1;
     for (int i = 0; i < fullCommand.length(); i++) {
       if (fullCommand.charAt(i) == ' ') {
@@ -236,25 +261,25 @@ bool Parser::trySetDutyCycle(String* wordsArray, String fullCommand){
     // VERIFICATIONS: ERRORS, ACKNOWLEDGE or SEND VIA CAN
     if (valContainsNonNumeric)
     {
-      Serial.println("err - Not a numeric value in <val> field."); 
+      Serial.println("err - Not a numeric value in <val> field."); // err
     }
     else if (iContainsNonNumeric)
     {
-      Serial.println("err - Not a numeric value in <i> field."); 
+      Serial.println("err - Not a numeric value in <i> field."); // err
     }
     else if (numWords != 3)
     {
-      Serial.println("err - Expected only 3 words.");
+      Serial.println("err - Expected only 3 words."); // err
       for (size_t i = 0; i < sizeof(wordsArray); i++)
       {
         Serial.println("word " + String(i) + " = " + wordsArray[i]);
       }
     }
     else if (0>wordsArray[2].toInt() || wordsArray[2].toInt()>100){
-      Serial.println("err - Not a valid duty cycle (try 0-100)."); 
+      Serial.println("err - Not a valid duty cycle (try 0-100)."); // err
     }
     else if(wordsArray[1].toInt()>MAX_BOARDS || wordsArray[1].toInt()<=0){
-      Serial.println("err - Not a valid board number."); 
+      Serial.println("err - Not a valid board number."); // err
     }
     else if (wordsArray[1]==Data::getBoardNumber())
     {
@@ -264,29 +289,40 @@ bool Parser::trySetDutyCycle(String* wordsArray, String fullCommand){
         Serial.println("ack"); // Acknowledge
       }
       else if (source==CAN_INPUT)
-      {
+      { //Response via CAN to the hub
         can_frame canMsgTx;
-        canMsgTx.can_id = (senderBoardNumber & 0x0F) | ((Data::getBoardNumber().toInt() & 0x0F) << 4) | ((ACKNOWLEDGE & 0x3FF) << 8);
+        canMsgTx.can_id = (senderBoardNumber & FILTER_BOARD_NUMBER) |
+                          ((Data::getBoardNumber().toInt() & FILTER_BOARD_NUMBER) << BOARD_NUMBER_BITS) |
+                          ((ACKNOWLEDGE & FILTER_MESSAGE_TYPE) << (BOARD_NUMBER_BITS*2)) |
+                          CAN_EFF_FLAG;
         canMsgTx.can_dlc = 0;
+        Serial.println("Sending response...");
         CustomCAN::SendMessage(&canMsgTx);
       }
     }
-    else if(source==SERIAL_INPUT){
+    else if(source==SERIAL_INPUT)
+    {// Reroute via CAN to the proper board
       can_frame canMsgTx;
-      canMsgTx.can_id = (wordsArray[1].toInt() & 0x0F) | ((Data::getBoardNumber().toInt() & 0x0F) << 4) | ((SIMPLE_COMMAND & 0x3FF) << 8);
+      canMsgTx.can_id = (wordsArray[1].toInt() & FILTER_BOARD_NUMBER) |
+                        ((Data::getBoardNumber().toInt() & FILTER_BOARD_NUMBER) << BOARD_NUMBER_BITS) |
+                        ((SIMPLE_COMMAND & FILTER_MESSAGE_TYPE) << (BOARD_NUMBER_BITS*2)) |
+                        CAN_EFF_FLAG;
+      
       canMsgTx.can_dlc = fullCommand.length();
-      //Serial.println("DLC = " + String(canMsgTx.can_dlc)); // Debug
-      //Serial.println("fullcommand = " + fullCommand); // Debug
+      Serial.println("DLC = " + String(canMsgTx.can_dlc)); // Debug
+      // Fill data field
       for (int i = 0; i<fullCommand.length(); i++){
         canMsgTx.data[i]=fullCommand.charAt(i);
       }
+      //Send
+      Serial.println("Rerouting command...");
       CustomCAN::SendMessage(&canMsgTx);
-      //Serial.println("sending can id " + String(canMsgTx.can_id));
     }
     return true;
   }
   return false;
 }
+
 
 // Check if the command is g d <i>. If it is, check errors and
 // destination, then execute it and send a response or reroute it.
@@ -332,30 +368,123 @@ bool Parser::tryGetDutyCycle(String* wordsArray, String fullCommand){
       String response = fullCommand;
       response.remove(0,2);
       response.concat(" " +String(Data::getDutyCycle()));
-      canMsgTx.can_id = (senderBoardNumber & 0x0F) | ((Data::getBoardNumber().toInt() & 0x0F) << 4) | ((SIMPLE_GET_RESPONSE & 0x3FF) << 8);
+      canMsgTx.can_id = (senderBoardNumber & FILTER_BOARD_NUMBER) |
+                        ((Data::getBoardNumber().toInt() & FILTER_BOARD_NUMBER) << BOARD_NUMBER_BITS) |
+                        ((SIMPLE_GET_RESPONSE & FILTER_MESSAGE_TYPE) << BOARD_NUMBER_BITS*2) |
+                        CAN_EFF_FLAG;
       canMsgTx.can_dlc = response.length();
+      // Fill data field
       for (int i = 0; i<response.length(); i++){
         canMsgTx.data[i]=response.charAt(i);
       }
+      Serial.println("Sending response...");
       CustomCAN::SendMessage(&canMsgTx);
     }
     else if(source==SERIAL_INPUT)
     { // Reroute via CAN to the proper board
       can_frame canMsgTx;
-      canMsgTx.can_id = (wordsArray[2].toInt() & 0x0F) | ((Data::getBoardNumber().toInt() & 0x0F) << 4) | ((SIMPLE_COMMAND & 0x3FF) << 8);
+      canMsgTx.can_id = (wordsArray[2].toInt() & FILTER_BOARD_NUMBER) |
+                        ((Data::getBoardNumber().toInt() & FILTER_BOARD_NUMBER) << BOARD_NUMBER_BITS) |
+                        ((SIMPLE_COMMAND & FILTER_MESSAGE_TYPE) << BOARD_NUMBER_BITS*2) |
+                        CAN_EFF_FLAG;
       canMsgTx.can_dlc = fullCommand.length();
-      //Serial.println("DLC = " + String(canMsgTx.can_dlc)); // Debug
-      //Serial.println("fullcommand = " + fullCommand); // Debug
+      // Fill data field
       for (int i = 0; i<fullCommand.length(); i++){
         canMsgTx.data[i]=fullCommand.charAt(i);
       }
+      //Send
+      Serial.println("Rerouting command...");
       CustomCAN::SendMessage(&canMsgTx);
-      //Serial.println("sending can id " + String(canMsgTx.can_id));
     }
     return true;
   }
   return false;
 }
+
+
+// Check if the command is r <i> <val>. If it is, check errors and
+// destination, then execute it and send a response or reroute it.
+bool Parser::trySetReference(String* wordsArray, String fullCommand){
+  // “r <i> <val>” Set duty cycle
+  if (wordsArray[0]=="r"){
+    // Check if there are non numeric values in the <val> field
+    bool valContainsNonNumeric = false;
+    for (int i = 0; i < wordsArray[2].length(); i++){
+      if (!isDigit(wordsArray[2].charAt(i))) {
+        valContainsNonNumeric = true;
+        break;
+      }
+    }
+    // Check if there are non numeric values in the <i> field
+    bool iContainsNonNumeric = false;
+    for (int i = 0; i < wordsArray[1].length(); i++){
+      if (!isDigit(wordsArray[1].charAt(i))) {
+        iContainsNonNumeric = true;
+        break;
+      }
+    }
+    // Check number of words
+    int numWords = 1;
+    for (int i = 0; i < fullCommand.length(); i++) {
+      if (fullCommand.charAt(i) == ' ') {
+        numWords++;
+      }
+    }
+    
+    // VERIFICATIONS: ERRORS, ACKNOWLEDGE or SEND VIA CAN
+    if (valContainsNonNumeric)
+    {
+      Serial.println("err - Not a numeric value in <val> field."); // err
+    }
+    else if (iContainsNonNumeric)
+    {
+      Serial.println("err - Not a numeric value in <i> field."); // err
+    }
+    else if (numWords != 3)
+    {
+      Serial.println("err - Expected only 3 words."); // err
+    }
+    else if (0>wordsArray[2].toFloat() || wordsArray[2].toFloat()>1000){
+      Serial.println("err - Not a valid reference (try 1000 >= r >= 0)."); // err
+    }
+    else if(wordsArray[1].toInt()>MAX_BOARDS || wordsArray[1].toInt()<=0){
+      Serial.println("err - Not a valid board number."); // err
+    }
+    else if (wordsArray[1]==Data::getBoardNumber())
+    {
+      Data::setReference(wordsArray[2].toFloat()); // execute
+      if (source==SERIAL_INPUT)
+      {
+        Serial.println("ack"); // Acknowledge
+      }
+      else if (source==CAN_INPUT)
+      { //Response via CAN to the hub
+        can_frame canMsgTx;
+        canMsgTx.can_id = (senderBoardNumber & FILTER_BOARD_NUMBER) |
+                          ((Data::getBoardNumber().toInt() & FILTER_BOARD_NUMBER) << BOARD_NUMBER_BITS) |
+                          ((ACKNOWLEDGE & FILTER_MESSAGE_TYPE) << BOARD_NUMBER_BITS*2);
+        canMsgTx.can_dlc = 0;
+        CustomCAN::SendMessage(&canMsgTx);
+      }
+    }
+    else if(source==SERIAL_INPUT)
+    { // Reroute via CAN to the proper board
+      can_frame canMsgTx;
+      canMsgTx.can_id = (wordsArray[1].toInt() & FILTER_BOARD_NUMBER) |
+                        ((Data::getBoardNumber().toInt() & FILTER_BOARD_NUMBER) << BOARD_NUMBER_BITS) |
+                        ((FLOAT_COMMAND & FILTER_MESSAGE_TYPE) << BOARD_NUMBER_BITS*2);
+      canMsgTx.can_dlc = ceil(sizeof(float)/8)+1;
+      canMsgTx.data[0]=fullCommand.charAt(0);
+      float value = wordsArray[2].toFloat();
+      memcpy(&canMsgTx.data[1], &value, sizeof(float));
+      //Send
+      CustomCAN::SendMessage(&canMsgTx);
+    }
+    return true;
+  }
+  return false;
+}
+
 
 // Checks the commands for a match
 void Parser::actuateCommand(String* wordsArray){
