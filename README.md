@@ -30,11 +30,7 @@ Message type | Sender | Receiver
 Command | Status | Response | Status
 :------------ | :-------------| :-------------| :-------------
 d <i> <val> | :heavy_check_mark: |  “ack” or “err” | :heavy_check_mark:
-:------------ | :-------------| :-------------| :-------------
 g d <i> | :heavy_check_mark: |  d <i> <val> | :heavy_check_mark:
-:------------ | :-------------| :-------------| :-------------
 r <i> <val> | :heavy_check_mark: |  “ack” or “err” | :heavy_check_mark:
-:------------ | :-------------| :-------------| :-------------
 g r <i> | :white_check_mark: |  r <i> <val> | :white_check_mark:
-:------------ | :-------------| :-------------| :-------------
 g l <i> | :white_check_mark: |  l <i> <val> | :white_check_mark:
