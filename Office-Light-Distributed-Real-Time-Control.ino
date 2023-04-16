@@ -8,7 +8,7 @@
 uint8_t this_pico_flash_id[8], node_address;
 
 // Class instances
-pid my_pid {0.01, 0.35, 300.7, 0.008, 0, 10, 0.01};
+pid my_pid {0.01, 50, 1, 0.5}; // h, K, b, Ti
 Parser communicationParser;
 
 // flags and auxiliary variables
@@ -122,11 +122,10 @@ void loop() {
     float r = communicationParser.Data::getReference();
     float y = lux;
     float v = my_pid.compute_control(r, y); //unsaturated output
-    float u = my_pid.compute_control(r, y); //unsaturated output
-    //float u = my_pid.saturate_output(v);
+    float u = my_pid.saturate_output(v);
     int pwm = (int)u;
     analogWrite(LED_PIN, pwm); // Set the LED
-    my_pid.housekeep(r, y,v);
+    my_pid.housekeep(r, y, v, u);
 
     
     // Visualization commands
