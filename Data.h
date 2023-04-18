@@ -23,8 +23,8 @@ public:
 
   // Getter functions
   String getBoardNumber() const;
-  int getDutyCycle() const;
-  int getReference() const;
+  float getDutyCycle() const;
+  float getReference() const;
   bool getOccupancy() const;
   bool getWindUp() const;
   bool getFeedback() const;
@@ -37,8 +37,8 @@ public:
 
   // Setter functions
   void setBoardNumber(String boardNumb);
-  void setDutyCycle(int duty);
-  void setReference(int ref);
+  void setDutyCycle(float duty);
+  void setReference(float ref);
   void setOccupancy(bool occ);
   void setWindUp(bool wu);
   void setFeedback(bool fb);

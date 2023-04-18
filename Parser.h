@@ -18,17 +18,27 @@ class Parser : public Data, public CustomCAN {
       PARSE,
       ACTUATE
     };
-    enum canMessageType {
-      WAKE_UP,
-      SIMPLE_COMMAND,
-      FLOAT_COMMAND,
-      SIMPLE_GET_RESPONSE,
-      ACKNOWLEDGE,
+    enum canMessageIdentifier {
+      NONE,
+      SET_DUTY_CYCLE,
+      GET_DUTY_CYCLE,
+      SET_LUX_REFERENCE,
+      GET_LUX_REFERENCE,
+      GET_LUX_MEASUREMENT,
+      SET_OCCUPANCY,
+      GET_OCCUPANCY,
+      SET_ANTI_WINDUP,
+      GET_ANTI_WINDUP,
+      GET_LAST_MINUTE_BUFFER,
       RESTART
     };
     enum inputSource {
       SERIAL_INPUT,
       CAN_INPUT
+    };
+    enum id29 {
+      RESET_RESPONSE_FLAG,
+      SET_RESPONSE_FLAG
     };
     state serialCurrentState;
     state canCurrentState;
@@ -38,16 +48,16 @@ class Parser : public Data, public CustomCAN {
     static const int MAX_MESSAGE_LENGTH = 20; // Maximum allowed message length
     static const int MAX_WORD_LENGTH = 4; // Maximum allowed message length
     static const int MAX_BOARDS = 3; // Maximum board number
-    static const int BOARD_NUMBER_BITS = 12;  // Number of board identifying bits.
-    static const int FILTER_BOARD_NUMBER = 0x0FFF;  // Comparison bits for decoding can id;
-    static const int FILTER_MESSAGE_TYPE = 0x1F;  // Comparison bits for decoding can id;
+    static const int BOARD_NUMBER_BITS = 14;  // Number of board identifying bits.
+    static const int FILTER_BOARD_NUMBER = 0x3FFF;  // Comparison bits for decoding can id;
+    static const int FILTER_MESSAGE_TYPE = 0x1;  // Comparison bits for decoding can id;
 
     // Communications variables
     String serialMessage; //raw message
     static String wordsSerial[MAX_WORD_LENGTH]; //array of words used in serial comms
     static String wordsCAN[MAX_WORD_LENGTH]; //array of words used in CAN comms
     int receiverBoardNumber;
-    int messageNumber;
+    int responseFlag;
     int senderBoardNumber;
 
     // Debug flags
@@ -58,12 +68,9 @@ class Parser : public Data, public CustomCAN {
     //Methods
     void readSerialCommand();
     void parseSerialCommand(); //parses from a full string to an array of strings
-    void parseSimpleCommand(can_frame msg);
-    void parseSimpleGetResponse(can_frame msg);
-    String redoCommand(String* wordsArray);
-    bool trySetDutyCycle(String* wordsArray, String fullCommand);
-    bool tryGetDutyCycle(String* wordsArray, String fullCommand);
-    bool trySetReference(String* wordsArray, String fullCommand);
+    bool trySetDutyCycle(String* wordsArray, can_frame msg);
+    bool tryGetDutyCycle(String* wordsArray, can_frame msg);
+    bool trySetReference(String* wordsArray, can_frame msg);
     void actuateCommand(String* wordsArray); //Sets flags and executes getters
 };
 

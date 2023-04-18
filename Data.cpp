@@ -21,11 +21,11 @@ String Data::getBoardNumber() const {
   return boardNumber;
 }
 
-int Data::getDutyCycle() const {
+float Data::getDutyCycle() const {
   return dutyCycle;
 }
 
-int Data::getReference() const {
+float Data::getReference() const {
   return reference;
 }
 
@@ -72,11 +72,11 @@ void Data::setBoardNumber(String boardNumb) {
   boardNumber = boardNumb;
 }
 
-void Data::setDutyCycle(int duty) {
+void Data::setDutyCycle(float duty) {
   dutyCycle = duty;
 }
 
-void Data::setReference(int ref) {
+void Data::setReference(float ref) {
   reference = ref;
 }
 
