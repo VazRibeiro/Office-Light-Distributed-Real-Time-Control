@@ -62,6 +62,7 @@ class Parser : public Data, public CustomCAN {
     int receiverBoardNumber;
     int senderBoardNumber;
     int responseFlag;
+    can_frame local_msg;
 
     // Debug flags
     bool getSerialDuration;

@@ -80,6 +80,9 @@ void Parser::canCommunicationSM(){
     case READ:
       if (CustomCAN::getDataAvailable()){
         CustomCAN::setDataAvailable(false);
+        noInterrupts();
+        local_msg = CustomCAN::getcanMsgRx(); //local copy
+        interrupts();
         canCurrentState = ACTUATE;
       }
       break;
@@ -289,7 +292,7 @@ bool Parser::tryGetCommandFloat(String* wordsArray, can_frame msg, int messageId
       else
       {// Reroute via CAN to the proper board
         can_frame canMsgTx;
-        canMsgTx.can_id = (wordsArray[1].toInt() & FILTER_BOARD_NUMBER) |
+        canMsgTx.can_id = (wordsArray[2].toInt() & FILTER_BOARD_NUMBER) |
                           ((Data::getBoardNumber().toInt() & FILTER_BOARD_NUMBER) << BOARD_NUMBER_BITS) |
                           ((RESET_RESPONSE_FLAG & FILTER_MESSAGE_TYPE) << (BOARD_NUMBER_BITS*2)) |
                           CAN_EFF_FLAG;
@@ -338,36 +341,28 @@ bool Parser::tryGetCommandFloat(String* wordsArray, can_frame msg, int messageId
 // Checks the commands for a match
 void Parser::actuateCommand(String* wordsArray){
   float timer = micros();
-  // Create can msg local copy or set message identifier to none:
-  can_frame msg;
-  if (source==CAN_INPUT)
+  if(source==SERIAL_INPUT)
   {
-    noInterrupts();
-    msg = CustomCAN::getcanMsgRx(); //local copy
-    interrupts();
-  }
-  else if(source==SERIAL_INPUT)
-  {
-    msg.data[0] = NONE; //message identifier to none
+    local_msg.data[0] = NONE; //message identifier to none
   }
   
   // “d <i> <val>” Set duty cycle
-  if (trySetCommandFloat(wordsArray,msg,SET_DUTY_CYCLE,"d",&Data::setDutyCycle,0,100)){
+  if (trySetCommandFloat(wordsArray,local_msg,SET_DUTY_CYCLE,"d",&Data::setDutyCycle,0,100)){
     return;
   }
   
   // “g d <i>” Get duty cycle
-  if (tryGetCommandFloat(wordsArray,msg,GET_DUTY_CYCLE,"d",&Data::getDutyCycle)){
+  if (tryGetCommandFloat(wordsArray,local_msg,GET_DUTY_CYCLE,"d",&Data::getDutyCycle)){
     return;
   }
   
   // “r <i> <val>” Set illuminance reference
-  if (trySetCommandFloat(wordsArray,msg,SET_LUX_REFERENCE,"r",&Data::setReference,0,999)){
+  if (trySetCommandFloat(wordsArray,local_msg,SET_LUX_REFERENCE,"r",&Data::setReference,0,999)){
     return;
   }
   
   // “gr <i>” Get illuminance reference
-  if (tryGetCommandFloat(wordsArray,msg,GET_LUX_REFERENCE,"r",&Data::getReference)){
+  if (tryGetCommandFloat(wordsArray,local_msg,GET_LUX_REFERENCE,"r",&Data::getReference)){
     return;
   }
   
