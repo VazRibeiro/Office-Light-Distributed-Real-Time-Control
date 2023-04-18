@@ -83,56 +83,12 @@ void Parser::canCommunicationSM(){
         canCurrentState = ACTUATE;
       }
       break;
-      
-    // case PARSE:
-    //   noInterrupts();
-    //   msg = CustomCAN::getcanMsgRx(); //local copy
-    //   interrupts();
-    //   receiverBoardNumber = msg.can_id & FILTER_BOARD_NUMBER;                      // extract the receiver
-    //   senderBoardNumber = (msg.can_id >> BOARD_NUMBER_BITS) & FILTER_BOARD_NUMBER; // extract the sender
-    //   responseFlag = (msg.can_id >> (2*BOARD_NUMBER_BITS)) & FILTER_MESSAGE_TYPE;   // extract the message type
-
-    //   //Debug
-    //   Serial.println("Board " + String(receiverBoardNumber) +
-    //                 " received a message from board " + String(senderBoardNumber) +
-    //                 " of type " + String(responseFlag));
-      
-    //   switch (responseFlag){
-    //     case WAKE_UP:
-    //       Serial.println("Entered wake up...");
-    //       break;
-    //     case SIMPLE_COMMAND:
-    //       parseSimpleCommand(msg);
-    //       break;
-    //     case FLOAT_COMMAND:
-    //       float value;
-    //       memcpy(&value,&msg.data[1],sizeof(value));
-    //       wordsCAN[0] = String(msg.data[0]);
-    //       wordsCAN[1] = String(receiverBoardNumber);
-    //       wordsCAN[2] = String(msg.data[0]);
-
-    //       for (size_t i = 0; i < sizeof(wordsCAN); i++)
-    //       {
-    //         Serial.println("Word " + String(i) + " = " + String(wordsCAN[i]));
-    //       }
-          
-    //       break;
-    //     case ACKNOWLEDGE:
-    //       Serial.println("ack"); // Acknowledge
-    //       break;
-    //     case SIMPLE_GET_RESPONSE:
-    //       parseSimpleGetResponse(msg);
-    //       break;
-    //     case RESTART:
-    //       break;
-    //   }
-    //   canCurrentState = ACTUATE;
-    //   break;
 
     case ACTUATE:
       source = CAN_INPUT;
       actuateCommand(wordsCAN);
       canCurrentState = READ;
+      break;
   }
 }
 
@@ -168,16 +124,18 @@ void Parser::parseSerialCommand(){
 }
 
 
-// Check if the command is d <i> <val>. If it is, check errors and
-// destination, then execute it and send a response or reroute it.
-bool Parser::trySetDutyCycle(String* wordsArray, can_frame msg){
-  // “d <i> <val>” Set duty cycle
-  if (wordsArray[0]=="d" || msg.data[0] == SET_DUTY_CYCLE){
+// Check if the command is "<commandIdentifier> <i> <val>". If it is, check
+// errors and destination, then execute it and send a response or reroute it.
+bool Parser::trySetCommandFloat(String* wordsArray, can_frame msg, int messageIdentifier, String commandIdentifier, setFloat func, float min, float max){
+  // <commandIdentifier> <i> <val>
+  if (wordsArray[0]==commandIdentifier || msg.data[0] == messageIdentifier){
     if (source==SERIAL_INPUT)
     {
-      // Check if there are non numeric values in the <val> field
-      bool valContainsNonNumeric = false;
+      int valContainsNonNumeric = false;
+      bool iContainsNonNumeric = false;
+      int numWords = 0;
       int comma = 0;
+      // Check if there are non numeric values in the <val> field
       for (int i = 0; i < wordsArray[2].length(); i++){
         if (!isDigit(wordsArray[2].charAt(i))) {
           if (wordsArray[2].charAt(i)=='.')
@@ -197,7 +155,6 @@ bool Parser::trySetDutyCycle(String* wordsArray, can_frame msg){
         }
       }
       // Check if there are non numeric values in the <i> field
-      bool iContainsNonNumeric = false;
       for (int i = 0; i < wordsArray[1].length(); i++){
         if (!isDigit(wordsArray[1].charAt(i))) {
           iContainsNonNumeric = true;
@@ -205,7 +162,6 @@ bool Parser::trySetDutyCycle(String* wordsArray, can_frame msg){
         }
       }
       // Check number of words
-      int numWords = 0;
       for (size_t i = 0; i < sizeof(wordsArray); i++)
       {
         if (wordsArray[i].length())
@@ -213,47 +169,45 @@ bool Parser::trySetDutyCycle(String* wordsArray, can_frame msg){
           numWords++;
         }
       }
-      
       // VERIFICATIONS: ERRORS, ACKNOWLEDGE or SEND VIA CAN
       if (valContainsNonNumeric)
-      { // err
-        Serial.println("err - Not a numeric value in <val> field.");
+      {
+        Serial.println("err - Not a numeric value in <val> field."); // err
       }
       else if (iContainsNonNumeric)
-      { // err
-        Serial.println("err - Not a numeric value in <i> field.");
+      {
+        Serial.println("err - Not a numeric value in <i> field."); // err
       }
       else if (numWords != 3)
-      { // err
-        Serial.println("err - Expected 3 words."); 
+      {
+        Serial.println("err - Expected only 3 words."); // err
+        for (size_t i = 0; i < sizeof(wordsArray); i++)
+        {
+          Serial.println("word " + String(i) + " = " + wordsArray[i]);
+        }
       }
-      else if (0>wordsArray[2].toInt() || wordsArray[2].toInt()>100)
-      { // err
-        Serial.println("err - Not a valid duty cycle (try 0-100).");
+      else if (min>wordsArray[2].toFloat() || wordsArray[2].toFloat()>max){
+        Serial.println("err - Not a valid value."); // err
       }
-      else if(wordsArray[1].toInt()>MAX_BOARDS || wordsArray[1].toInt()<=0)
-      { // err
-        Serial.println("err - Not a valid board number.");
+      else if(wordsArray[1].toInt()>MAX_BOARDS || wordsArray[1].toInt()<=0){
+        Serial.println("err - Not a valid board number."); // err
       }
       else if (wordsArray[1]==Data::getBoardNumber())
       {// Acknowledge
-        Data::setDutyCycle(wordsArray[2].toFloat());
+        (this->*func)(wordsArray[2].toFloat());
         Serial.println("ack");
       }
       else
       {// Reroute via CAN to the proper board
-        //1 - Convert the float to byte array
         can_frame canMsgTx;
-        float val = wordsArray[2].toFloat();
-        memcpy(&canMsgTx.data[1], &val, sizeof(float));
-        //2 - Fill message
         canMsgTx.can_id = (wordsArray[1].toInt() & FILTER_BOARD_NUMBER) |
                           ((Data::getBoardNumber().toInt() & FILTER_BOARD_NUMBER) << BOARD_NUMBER_BITS) |
                           ((RESET_RESPONSE_FLAG & FILTER_MESSAGE_TYPE) << (BOARD_NUMBER_BITS*2)) |
                           CAN_EFF_FLAG;
         canMsgTx.can_dlc = sizeof(float)+1;
-        canMsgTx.data[0] = SET_DUTY_CYCLE;
-        //3 - Send
+        canMsgTx.data[0] = messageIdentifier;
+        float val = wordsArray[2].toFloat();
+        memcpy(&canMsgTx.data[1], &val, sizeof(float));
         CustomCAN::SendMessage(&canMsgTx);
       }
     }
@@ -262,7 +216,6 @@ bool Parser::trySetDutyCycle(String* wordsArray, can_frame msg){
       receiverBoardNumber = msg.can_id & FILTER_BOARD_NUMBER;                      // extract the receiver
       senderBoardNumber = (msg.can_id >> BOARD_NUMBER_BITS) & FILTER_BOARD_NUMBER; // extract the sender
       responseFlag = (msg.can_id >> (2*BOARD_NUMBER_BITS)) & FILTER_MESSAGE_TYPE;  // extract the response flag
-      
       if (responseFlag)
       { //if its the response then print to serial
         Serial.println("ack");
@@ -273,7 +226,7 @@ bool Parser::trySetDutyCycle(String* wordsArray, can_frame msg){
         float val;
         memcpy(&val,&msg.data[1],sizeof(float));
         //2 - actuate
-        Data::setDutyCycle(val);
+        (this->*func)(val);
         //3 - then send a response to acknowledge
         can_frame canMsgTx;
         canMsgTx.can_id = (senderBoardNumber & FILTER_BOARD_NUMBER) |
@@ -281,7 +234,7 @@ bool Parser::trySetDutyCycle(String* wordsArray, can_frame msg){
                           ((SET_RESPONSE_FLAG & FILTER_MESSAGE_TYPE) << (BOARD_NUMBER_BITS*2)) |
                           CAN_EFF_FLAG;
         canMsgTx.can_dlc = 1;
-        canMsgTx.data[0] = SET_DUTY_CYCLE;
+        canMsgTx.data[0] = messageIdentifier;
         CustomCAN::SendMessage(&canMsgTx);
       } 
     }  
@@ -290,16 +243,15 @@ bool Parser::trySetDutyCycle(String* wordsArray, can_frame msg){
   return false;
 }
 
-
-// Check if the command is g d <i>. If it is, check errors and
-// destination, then execute it and send a response or reroute it.
-bool Parser::tryGetDutyCycle(String* wordsArray, can_frame msg){
-  // “g d <i>” Get duty cycle
-  if (wordsArray[0]=="g" && wordsArray[1]=="d"|| msg.data[0] == GET_DUTY_CYCLE){
+// Check if the command is "g <commandIdentifier> <i> <val>". If it is, check
+// errors and destination, then execute it and send a response or reroute it.
+bool Parser::tryGetCommandFloat(String* wordsArray, can_frame msg, int messageIdentifier, String commandIdentifier, getFloat func){
+  if (wordsArray[0]=="g" && wordsArray[1]==commandIdentifier|| msg.data[0] == messageIdentifier){
     if (source==SERIAL_INPUT)
     {
-      // Check if there are non numeric values in the <i> field
       bool iContainsNonNumeric = false;
+      int numWords = 0;
+      // Check if there are non numeric values in the <i> field
       for (int i = 0; i < wordsArray[2].length(); i++){
         if (!isDigit(wordsArray[2].charAt(i))) {
           iContainsNonNumeric = true;
@@ -307,7 +259,6 @@ bool Parser::tryGetDutyCycle(String* wordsArray, can_frame msg){
         }
       }
       // Check number of words
-      int numWords = 0;
       for (size_t i = 0; i < sizeof(wordsArray); i++)
       {
         if (wordsArray[i].length())
@@ -315,23 +266,25 @@ bool Parser::tryGetDutyCycle(String* wordsArray, can_frame msg){
           numWords++;
         }
       }
-      
       // VERIFICATIONS: ERRORS, ACKNOWLEDGE or SEND VIA CAN
       if (iContainsNonNumeric)
-      { // err
-        Serial.println("err - Not a numeric value in <i> field.");
+      {
+        Serial.println("err - Not a numeric value in <i> field."); // err
       }
       else if (numWords != 3)
-      { // err
-        Serial.println("err - Expected 3 words."); 
+      {
+        Serial.println("err - Expected only 3 words."); // err
+        for (size_t i = 0; i < sizeof(wordsArray); i++)
+        {
+          Serial.println("word " + String(i) + " = " + wordsArray[i]);
+        }
       }
-      else if(wordsArray[2].toInt()>MAX_BOARDS || wordsArray[2].toInt()<=0)
-      { // err
-        Serial.println("err - Not a valid board number.");
+      else if(wordsArray[2].toInt()>MAX_BOARDS || wordsArray[2].toInt()<=0){
+        Serial.println("err - Not a valid board number."); // err
       }
       else if (wordsArray[2]==Data::getBoardNumber())
-      {// Acknowledge
-        Serial.println("d " + wordsArray[2] + " " + String(Data::getDutyCycle()));  // d <i> <val>
+      {// <commandIdentifier> <i> <val>
+        Serial.println(commandIdentifier + " " + wordsArray[2] + " " + String((this->*(func))()));
       }
       else
       {// Reroute via CAN to the proper board
@@ -341,7 +294,7 @@ bool Parser::tryGetDutyCycle(String* wordsArray, can_frame msg){
                           ((RESET_RESPONSE_FLAG & FILTER_MESSAGE_TYPE) << (BOARD_NUMBER_BITS*2)) |
                           CAN_EFF_FLAG;
         canMsgTx.can_dlc = 1;
-        canMsgTx.data[0] = GET_DUTY_CYCLE;
+        canMsgTx.data[0] = messageIdentifier;
         //Send
         CustomCAN::SendMessage(&canMsgTx);
       }
@@ -351,20 +304,18 @@ bool Parser::tryGetDutyCycle(String* wordsArray, can_frame msg){
       receiverBoardNumber = msg.can_id & FILTER_BOARD_NUMBER;                      // extract the receiver
       senderBoardNumber = (msg.can_id >> BOARD_NUMBER_BITS) & FILTER_BOARD_NUMBER; // extract the sender
       responseFlag = (msg.can_id >> (2*BOARD_NUMBER_BITS)) & FILTER_MESSAGE_TYPE;  // extract the response flag
-      
       if (responseFlag)
       { //if its the response then print to serial
         //1 - get the float
         float val;
         memcpy(&val,&msg.data[1],sizeof(float));
-        //2 - print
-        Serial.println("d " + String(senderBoardNumber) + " " + String(val));  // d <i> <val>
+        //2 - print <command identifier> <i> <val>
+        Serial.println(commandIdentifier + " " + String(senderBoardNumber) + " " + String(val));  
       }
       else
       { //if its not the response, it's a command to actuate
         //1 - do the get command
-        float val = Data::getDutyCycle();
-        Serial.println(val);
+        float val = (this->*(func))();
         //2 - Fill data
         can_frame canMsgTx;
         canMsgTx.can_id = (senderBoardNumber & FILTER_BOARD_NUMBER) |
@@ -372,7 +323,7 @@ bool Parser::tryGetDutyCycle(String* wordsArray, can_frame msg){
                           ((SET_RESPONSE_FLAG & FILTER_MESSAGE_TYPE) << (BOARD_NUMBER_BITS*2)) |
                           CAN_EFF_FLAG;
         canMsgTx.can_dlc = sizeof(float)+1;
-        canMsgTx.data[0] = GET_DUTY_CYCLE;
+        canMsgTx.data[0] = messageIdentifier;
         memcpy(&canMsgTx.data[1],&val,sizeof(float));
         //3 - Send response message
         CustomCAN::SendMessage(&canMsgTx);
@@ -384,140 +335,40 @@ bool Parser::tryGetDutyCycle(String* wordsArray, can_frame msg){
 }
 
 
-// Check if the command is r <i> <val>. If it is, check errors and
-// destination, then execute it and send a response or reroute it.
-bool Parser::trySetReference(String* wordsArray, can_frame msg){
-  //“r <i> <val>” Set duty cycle
-  
-
-  //   return true;
-  // }
-  return false;
-}
-
-
 // Checks the commands for a match
 void Parser::actuateCommand(String* wordsArray){
   float timer = micros();
+  // Create can msg local copy or set message identifier to none:
   can_frame msg;
   if (source==CAN_INPUT)
-  {// If message is coming from CAN create local copy
+  {
     noInterrupts();
     msg = CustomCAN::getcanMsgRx(); //local copy
     interrupts();
   }
   else if(source==SERIAL_INPUT)
-  {// If message is coming from serial set message identifier to none
-    msg.data[0] = NONE;
+  {
+    msg.data[0] = NONE; //message identifier to none
   }
   
-
   // “d <i> <val>” Set duty cycle
-  if (trySetDutyCycle(wordsArray, msg)){
+  if (trySetCommandFloat(wordsArray,msg,SET_DUTY_CYCLE,"d",&Data::setDutyCycle,0,100)){
     return;
   }
   
   // “g d <i>” Get duty cycle
-  if (tryGetDutyCycle(wordsArray, msg)){
+  if (tryGetCommandFloat(wordsArray,msg,GET_DUTY_CYCLE,"d",&Data::getDutyCycle)){
     return;
   }
   
   // “r <i> <val>” Set illuminance reference
-  if (wordsArray[0]=="r" && wordsArray[1]==Data::getBoardNumber()){
-    if (0<=wordsArray[2].toInt()){
-      Data::setReference(wordsArray[2].toInt());
-      Serial.println("ack");
-    }
-    else
-    {
-      Serial.println("err"); // Print an error message
-    }
+  if (trySetCommandFloat(wordsArray,msg,SET_LUX_REFERENCE,"r",&Data::setReference,0,999)){
+    return;
   }
   
   // “gr <i>” Get illuminance reference
-  if (wordsArray[0]=="gr" && wordsArray[1]==Data::getBoardNumber()){
-    Serial.println("r " + wordsArray[1] + " " + Data::getReference());
-  }
-
-  // “gl <i>” Get illuminance measured
-  if (wordsArray[0]=="gl" && wordsArray[1]==Data::getBoardNumber()){
-    Serial.println("l " + wordsArray[1] + " " + getLuminance());
-  }
-
-  // “o <i> <val>” Set occupancy state
-  if (wordsArray[0]=="o" && wordsArray[1]==Data::getBoardNumber()){
-    if (0==wordsArray[2].toInt() || 1==wordsArray[2].toInt()) {
-      Data::setOccupancy(wordsArray[2].toInt());
-      Serial.println("ack");
-    }
-    else
-    {
-      Serial.println("err"); // Print an error message
-    }
-  }
-
-  // “go <i>” Get occupancy state
-  if (wordsArray[0]=="go" && wordsArray[1]==Data::getBoardNumber()){
-    Serial.println("o " + wordsArray[1] + " o" + Data::getOccupancy());
-  }
-
-  // “a <i> <val>” Set anti-windup state
-  if (wordsArray[0]=="a" && wordsArray[1]==Data::getBoardNumber()){
-    if (0==wordsArray[2].toInt() || 1==wordsArray[2].toInt()) {
-      Data::setWindUp(wordsArray[2].toInt());
-      Serial.println("ack");
-    }
-    else
-    {
-      Serial.println("err"); // Print an error message
-    }
-  }
-
-  // “ga <i>” Get anti-windup state
-  if (wordsArray[0]=="ga" && wordsArray[1]==Data::getBoardNumber()){
-    Serial.println("a " + wordsArray[1] + " " + Data::getWindUp());
-  }
-
-  // “k <i> <val>” Set feedback state
-  if (wordsArray[0]=="k" && wordsArray[1]==Data::getBoardNumber()){
-    if (0==wordsArray[2].toInt() || 1==wordsArray[2].toInt()) {
-      Data::setFeedback(wordsArray[2].toInt());
-      Serial.println("ack");
-    }
-    else
-    {
-      Serial.println("err"); // Print an error message
-    }
-  }
-
-  // “gk <i>” Get feedback state
-  if (wordsArray[0]=="gk" && wordsArray[1]==Data::getBoardNumber()){
-    Serial.println("k " + wordsArray[1] + " " + Data::getFeedback());
-  }
-
-  // “s <x> <i>” Start stream of real-time variable
-  if (wordsArray[0]=="s" && wordsArray[2]==Data::getBoardNumber()){
-    if ("l"==wordsArray[1]) {
-      Data::setIlluminanceStreamValues(true);
-    }
-    if ("d"==wordsArray[1]) {
-      Data::setDutyCycleStreamValues(true);
-    }
-  }
-
-  // “S <x> <i>” Stop stream of real-time variable
-  if (wordsArray[0]=="S" && wordsArray[2]==Data::getBoardNumber()){
-    if ("l"==wordsArray[1]) {
-      Data::setIlluminanceStreamValues(false);
-      Serial.println("ack");
-    }
-    else if ("d"==wordsArray[1]) {
-      Data::setDutyCycleStreamValues(false);
-      Serial.println("ack");
-    }
-    else{
-      Serial.println("err");
-    }
+  if (tryGetCommandFloat(wordsArray,msg,GET_LUX_REFERENCE,"r",&Data::getReference)){
+    return;
   }
   
   //count time:

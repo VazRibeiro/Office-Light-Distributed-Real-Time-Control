@@ -7,6 +7,9 @@
 
 class Parser : public Data, public CustomCAN {
   public:
+    typedef void (Data::*setFloat)(float);
+    typedef float (Data::*getFloat)() const;
+
     Parser();
     void serialCommunicationSM(); //calls the other serial functions
     void canCommunicationSM();
@@ -52,13 +55,13 @@ class Parser : public Data, public CustomCAN {
     static const int FILTER_BOARD_NUMBER = 0x3FFF;  // Comparison bits for decoding can id;
     static const int FILTER_MESSAGE_TYPE = 0x1;  // Comparison bits for decoding can id;
 
-    // Communications variables
+    // Variables
     String serialMessage; //raw message
     static String wordsSerial[MAX_WORD_LENGTH]; //array of words used in serial comms
     static String wordsCAN[MAX_WORD_LENGTH]; //array of words used in CAN comms
     int receiverBoardNumber;
-    int responseFlag;
     int senderBoardNumber;
+    int responseFlag;
 
     // Debug flags
     bool getSerialDuration;
@@ -70,7 +73,8 @@ class Parser : public Data, public CustomCAN {
     void parseSerialCommand(); //parses from a full string to an array of strings
     bool trySetDutyCycle(String* wordsArray, can_frame msg);
     bool tryGetDutyCycle(String* wordsArray, can_frame msg);
-    bool trySetReference(String* wordsArray, can_frame msg);
+    bool trySetCommandFloat(String* wordsArray, can_frame msg, int messageIdentifier, String commandIdentifier, setFloat func, float min, float max);
+    bool tryGetCommandFloat(String* wordsArray, can_frame msg, int messageIdentifier, String commandIdentifier, getFloat func);
     void actuateCommand(String* wordsArray); //Sets flags and executes getters
 };
 

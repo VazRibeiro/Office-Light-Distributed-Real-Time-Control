@@ -96,7 +96,7 @@ void setup(){
 void loop() {
   // Serial running at 20 Hz
   if(timer2_fired){
-    if(deadlockLED){
+    if(false){
       digitalWrite(LED_BUILTIN, HIGH);
       deadlockLED = false;
     }
