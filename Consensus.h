@@ -13,17 +13,6 @@ struct Node {
     std::vector<double> L;
     std::vector<double> o;
 
-    Node(int number_of_boards) {
-        c.resize(number_of_boards);
-        y.resize(number_of_boards);
-        d_av.resize(number_of_boards);
-        k.resize(number_of_boards);
-        for(int i = 0; i < number_of_boards; i++) {
-            k[i].resize(number_of_boards);
-        }
-        L.resize(number_of_boards);
-        o.resize(number_of_boards);
-    }
 };
 
 

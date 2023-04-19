@@ -115,20 +115,22 @@ void loop() {
     mainLoopState = CALIBRATION;
     break;
   case CALIBRATION:
-    if(timer2_fired){
-      if (counterCalibration==20 && board_to_calibrate<=number_of_boards)
-      {
-        counterCalibration = 0;
-        //mensagem para todas as placas a dizer para ligar board 1,2,...
-        board_to_calibrate++;
-      } else if (board_to_calibrate>number_of_boards)
-      {
-        mainLoopState = CONTROL;
-        break;
-      }
-      communicationParser.canCommunicationSM(); // CAN communication state machine
-      counterCalibration++;
-    }
+    // if(timer2_fired){
+    //   if (counterCalibration==20 && board_to_calibrate<=number_of_boards)
+    //   {
+    //     counterCalibration = 0;
+    //     //mensagem para todas as placas a dizer para ligar board 1,2,...
+    //     board_to_calibrate++;
+    //   } else if (board_to_calibrate>number_of_boards)
+    //   {
+    //     mainLoopState = CONTROL;
+    //     break;
+    //   }
+    //   communicationParser.canCommunicationSM(); // CAN communication state machine
+    //   counterCalibration++;
+    // }
+    mainLoopState = CONTROL;
+    break;
   case CONTROL:
     // Serial running at 20 Hz
     if(timer2_fired){
@@ -154,15 +156,15 @@ void loop() {
       counter = micros();
       
       // Controller
-      // float r = communicationParser.Data::getReference();
-      // float y = lux;
-      // float v = my_pid.compute_control(r, y); //unsaturated output
-      // float u = my_pid.saturate_output(v);
-      // int pwm = (int)u;
-      // analogWrite(LED_PIN, pwm); // Set the LED
-      // my_pid.housekeep(r, y, v, u);
-      float r = 0;
-      float u = 0;
+      float r = communicationParser.Data::getReference();
+      float y = lux;
+      float v = my_pid.compute_control(r, y); //unsaturated output
+      float u = my_pid.saturate_output(v);
+      int pwm = (int)u;
+      analogWrite(LED_PIN, pwm); // Set the LED
+      my_pid.housekeep(r, y, v, u);
+      // float r = 0;
+      // float u = 0;
       //enviar soluções do consensus: pwm de cada placa (d), custo total (somatorio custo individual*pwm individual)
 
 

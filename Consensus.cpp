@@ -1,7 +1,7 @@
 #include <vector>
 #include "Consensus.h"
 
-
+/*
 // FUNCTION TO CHECK SOLUTION FEASIBILITY
 bool checkFeasibility(Node node, vector<double> d){ 
     double tol = 0.001; // tolerance for rounding errors
@@ -160,3 +160,5 @@ vector<double> d_l0 = (1/rho)*z -
 
     return d_best, cost_best;
 };
+
+*/
