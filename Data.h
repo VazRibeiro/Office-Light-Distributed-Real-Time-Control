@@ -1,6 +1,7 @@
 #ifndef DATA_H
 #define DATA_H
 #include <Arduino.h>
+#include "Buffer.h"
 
 class Data {
 private:

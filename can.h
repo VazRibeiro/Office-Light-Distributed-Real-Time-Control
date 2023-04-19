@@ -4,7 +4,6 @@
 #include <Arduino.h>
 #include "mcp2515.h"
 
-
 class CustomCAN {
   public:
     // Constructor
@@ -29,6 +28,5 @@ class CustomCAN {
     
     MCP2515 can0 {spi0, 17, 19, 16, 18, 10000000};
 };
-
 
 #endif /* CAN_H_ */
