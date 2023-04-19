@@ -15,7 +15,17 @@ class Parser : public Data, public CustomCAN {
     Parser();
     void serialCommunicationSM(); //calls the other serial functions
     void canCommunicationSM();
-  
+    void reset() {
+      serialCurrentState = READ;
+      canCurrentState = READ;
+      serialMessage = "";
+      getSerialDuration = false;
+      confirmSerialMessage = false;
+      readInterval = 0;
+      parseInterval = 0;
+      actuationInterval = 0;
+      Data::reset();
+    }
   private:
     // Enums
     enum state {
@@ -37,6 +47,7 @@ class Parser : public Data, public CustomCAN {
       SET_FEEDBACK,
       GET_FEEDBACK,
       GET_LAST_MINUTE_BUFFER,
+      GET_BOARD,
       RESTART
     };
     enum inputSource {
@@ -54,7 +65,6 @@ class Parser : public Data, public CustomCAN {
     // Constant limits
     static const int MAX_MESSAGE_LENGTH = 20; // Maximum allowed message length
     static const int MAX_WORD_LENGTH = 4; // Maximum allowed message length
-    static const int MAX_BOARDS = 3; // Maximum board number
     static const int BOARD_NUMBER_BITS = 14;  // Number of board identifying bits.
     static const int FILTER_BOARD_NUMBER = 0x3FFF;  // Comparison bits for decoding can id;
     static const int FILTER_MESSAGE_TYPE = 0x1;  // Comparison bits for decoding can id;
@@ -76,12 +86,11 @@ class Parser : public Data, public CustomCAN {
     //Methods
     void readSerialCommand();
     void parseSerialCommand(); //parses from a full string to an array of strings
-    bool trySetDutyCycle(String* wordsArray, can_frame msg);
-    bool tryGetDutyCycle(String* wordsArray, can_frame msg);
     bool trySetCommandFloat(String* wordsArray, can_frame msg, int messageIdentifier, String commandIdentifier, setFloat func, float min, float max);
     bool tryGetCommandFloat(String* wordsArray, can_frame msg, int messageIdentifier, String commandIdentifier, getFloat func);
     bool trySetCommandBool(String* wordsArray, can_frame msg, int messageIdentifier, String commandIdentifier, setBool func);
     bool tryGetCommandBool(String* wordsArray, can_frame msg, int messageIdentifier, String commandIdentifier, getBool func);
+    void tryWakeUp(can_frame msg);
     void actuateCommand(String* wordsArray); //Sets flags and executes getters
 };
 

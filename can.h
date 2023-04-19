@@ -12,6 +12,7 @@ class CustomCAN {
     void setupCAN(gpio_irq_callback_t callback, int boardNumber);
     void ReadMessage();
     void SendMessage(const can_frame *msg);
+    void SendWakeUpMessage(int node_adress, int FILTER_BOARD_NUMBER, int BOARD_NUMBER_BITS);
     void setDataAvailable(bool data);
     bool getDataAvailable() const;
     can_frame getcanMsgRx() const;

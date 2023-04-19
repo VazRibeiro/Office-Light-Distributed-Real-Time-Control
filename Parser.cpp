@@ -189,7 +189,7 @@ bool Parser::trySetCommandFloat(String* wordsArray, can_frame msg, int messageId
       else if (min>wordsArray[2].toFloat() || wordsArray[2].toFloat()>max){
         Serial.println("err - Not a valid value."); // err
       }
-      else if(wordsArray[1].toInt()>MAX_BOARDS || wordsArray[1].toInt()<=0){
+      else if(wordsArray[1].toInt()>Data::getTotalNumberOfBoards() || wordsArray[1].toInt()<=0){
         Serial.println("err - Not a valid board number."); // err
       }
       else if (wordsArray[1]==Data::getBoardNumber())
@@ -293,7 +293,7 @@ bool Parser::trySetCommandBool(String* wordsArray, can_frame msg, int messageIde
       else if (!(wordsArray[2]=="0" || wordsArray[2]=="1")){
         Serial.println("err - Not a valid value."); // err
       }
-      else if(wordsArray[1].toInt()>MAX_BOARDS || wordsArray[1].toInt()<=0){
+      else if(wordsArray[1].toInt()>Data::getTotalNumberOfBoards() || wordsArray[1].toInt()<=0){
         Serial.println("err - Not a valid board number."); // err
       }
       else if (wordsArray[1]==Data::getBoardNumber())
@@ -389,7 +389,7 @@ bool Parser::tryGetCommandFloat(String* wordsArray, can_frame msg, int messageId
       {
         Serial.println("err - Expected only 3 words."); // err
       }
-      else if(wordsArray[2].toInt()>MAX_BOARDS || wordsArray[2].toInt()<=0){
+      else if(wordsArray[2].toInt()>Data::getTotalNumberOfBoards() || wordsArray[2].toInt()<=0){
         Serial.println("err - Not a valid board number."); // err
       }
       else if (wordsArray[2]==Data::getBoardNumber())
@@ -478,7 +478,7 @@ bool Parser::tryGetCommandBool(String* wordsArray, can_frame msg, int messageIde
       {
         Serial.println("err - Expected only 3 words."); // err
       }
-      else if(wordsArray[2].toInt()>MAX_BOARDS || wordsArray[2].toInt()<=0){
+      else if(wordsArray[2].toInt()>Data::getTotalNumberOfBoards() || wordsArray[2].toInt()<=0){
         Serial.println("err - Not a valid board number."); // err
       }
       else if (wordsArray[2]==Data::getBoardNumber())
@@ -534,6 +534,20 @@ bool Parser::tryGetCommandBool(String* wordsArray, can_frame msg, int messageIde
 }
 
 
+void Parser::tryWakeUp(can_frame msg){
+  if (source==CAN_INPUT)
+  { //If received via CAN
+    receiverBoardNumber = msg.can_id & FILTER_BOARD_NUMBER;                      // extract the receiver
+    senderBoardNumber = (msg.can_id >> BOARD_NUMBER_BITS) & FILTER_BOARD_NUMBER; // extract the sender
+    if (receiverBoardNumber==0 && msg.can_dlc==0)
+    {
+      Data::setNode(senderBoardNumber);
+      Serial.println("wake up message received");
+    }
+  }
+}
+
+
 // Checks the commands for a match
 void Parser::actuateCommand(String* wordsArray){
   float timer = micros();
@@ -541,6 +555,9 @@ void Parser::actuateCommand(String* wordsArray){
   {
     local_msg.data[0] = NONE; //message identifier to none
   }
+
+  // Wake up identification
+  tryWakeUp(local_msg);
   
   // “d <i> <val>” Set duty cycle
   if (trySetCommandFloat(wordsArray,local_msg,SET_DUTY_CYCLE,"d",&Data::setDutyCycle,0,100)){
@@ -594,6 +611,11 @@ void Parser::actuateCommand(String* wordsArray){
   
   // “g k <i>” Get feedback on/off at desk <i>
   if (tryGetCommandBool(wordsArray,local_msg,GET_FEEDBACK,"k",&Data::getFeedback)){
+    return;
+  }
+
+  // “g r <i>” Get illuminance reference
+  if (tryGetCommandFloat(wordsArray,local_msg,GET_BOARD,"kk",&Data::getBoardNumberInt)){
     return;
   }
 

@@ -49,3 +49,12 @@ bool CustomCAN::getDataAvailable() const {
 can_frame CustomCAN::getcanMsgRx() const {
     return canMsgRx;
 }
+
+void CustomCAN::SendWakeUpMessage(int node_adress, int FILTER_BOARD_NUMBER, int BOARD_NUMBER_BITS){
+    can_frame canMsgTx;
+    canMsgTx.can_id =   (0 & FILTER_BOARD_NUMBER) |
+                        ((node_adress & FILTER_BOARD_NUMBER) << BOARD_NUMBER_BITS) |
+                        CAN_EFF_FLAG;
+    canMsgTx.can_dlc = 0;
+    SendMessage(&canMsgTx);
+}

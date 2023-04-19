@@ -5,6 +5,7 @@ Data::Data()
   : boardNumber(0),
     dutyCycle(),
     illuminance(),
+    node(),
     reference(0), 
     occupancy(false), 
     windUp(false), 
@@ -14,12 +15,21 @@ Data::Data()
     lastRestartTime(0.0), 
     illuminanceStreamValues(false),
     dutyCycleStreamValues(false),
-    sendLMBuffer(false)
+    sendLMBuffer(false),
+    restart(false)
 { }
 
 // Getter functions //////////////////////////////////////////
 String Data::getBoardNumber() const {
   return boardNumber;
+}
+
+float Data::getBoardNumberInt() const {
+  return boardNumber.toFloat();
+}
+
+int Data::getTotalNumberOfBoards() const {
+  return node.size();
 }
 
 float Data::getDutyCycle() const {
@@ -30,6 +40,10 @@ float Data::getDutyCycle() const {
 float Data::getIllumminance() const {
   int recent_index = (illuminance.getHead() + illuminance.capacity() - 1) % illuminance.capacity();  
   return illuminance.read(recent_index);
+}
+
+int Data::getNode(int index) const {  
+  return node.read(index);
 }
 
 float Data::getReference() const {
@@ -72,6 +86,10 @@ bool Data::getSendLMBuffer() const {
   return sendLMBuffer;
 }
 
+bool Data::getRestart() const {
+  return restart;
+}
+
 
 // Setter functions ///////////////////////////////////////////////
 
@@ -85,6 +103,10 @@ void Data::setDutyCycle(float duty) {
 
 void Data::setIlluminance(float illum) {
   illuminance.put(illum);
+}
+
+void Data::setNode(int nd) {
+  node.put(nd);
 }
 
 void Data::setReference(float ref) {
@@ -125,4 +147,8 @@ void Data::setDutyCycleStreamValues(bool streamD) {
 
 void Data::setSendLMBuffer(bool sendLM) {
   sendLMBuffer = sendLM;
+}
+
+void Data::setRestart(bool rstrt) {
+  restart = rstrt;
 }

@@ -8,6 +8,7 @@ private:
   String boardNumber;
   circular_buffer<float, 6000> dutyCycle;
   circular_buffer<float, 6000> illuminance;
+  circular_buffer<int,16384> node;
   float reference;
   bool occupancy;
   bool windUp;
@@ -18,15 +19,40 @@ private:
   bool illuminanceStreamValues;
   bool dutyCycleStreamValues;
   bool sendLMBuffer;
+  bool restart;
 
 public:
   // Constructor
   Data();
 
+  void incrementTotalNumberOfBoards();
+  void reset() {
+    boardNumber = "";
+    dutyCycle.clear();
+    dutyCycle.put(0);
+    illuminance.clear();
+    illuminance.put(0);
+    node.clear();
+    reference = 0;
+    occupancy = false;
+    windUp = false;
+    feedback = false;
+    externalIlluminance = 0.0;
+    powerConsumption = 0.0;
+    lastRestartTime = 0.0;
+    illuminanceStreamValues = false;
+    dutyCycleStreamValues = false;
+    sendLMBuffer = false;
+    restart = false;
+  }
+
   // Getter functions
   String getBoardNumber() const;
+  float getBoardNumberInt() const;
+  int getTotalNumberOfBoards() const;
   float getDutyCycle() const; 
   float getIllumminance() const;
+  int getNode(int index) const;
   float getReference() const;
   bool getOccupancy() const;
   bool getWindUp() const;
@@ -37,11 +63,13 @@ public:
   bool getIlluminanceStreamValues() const;
   bool getDutyCycleStreamValues() const;
   bool getSendLMBuffer() const;
+  bool getRestart() const;
 
   // Setter functions
   void setBoardNumber(String boardNumb);
   void setDutyCycle(float duty);
   void setIlluminance(float illum);
+  void setNode(int nd);
   void setReference(float ref);
   void setOccupancy(bool occ);
   void setWindUp(bool wu);
@@ -52,6 +80,7 @@ public:
   void setIlluminanceStreamValues(bool streamI);
   void setDutyCycleStreamValues(bool streamD);
   void setSendLMBuffer(bool sendLM);
+  void setRestart(bool rstrt);
 };
 
 #endif

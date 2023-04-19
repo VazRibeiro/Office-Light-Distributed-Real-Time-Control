@@ -12,7 +12,6 @@ struct Node {
     std::vector<std::vector<double>> k;
     std::vector<double> L;
     std::vector<double> o;
-
 };
 
 

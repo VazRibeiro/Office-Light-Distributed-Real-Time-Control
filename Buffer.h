@@ -15,7 +15,7 @@ class circular_buffer {
     circular_buffer() : head {0}, tail{0}, count{0} {};
     ~circular_buffer() {};
     int capacity() const { return buffer_size; }
-    int size() { return count; }
+    int size() const { return count; }
     bool is_empty() { return count == 0; }
     bool is_full() { return count == buffer_size; }
     T peak() { return buffer[tail]; } // inspect but keep value invalid if buffer empty
@@ -42,6 +42,12 @@ class circular_buffer {
 
     T read(int index) const {
         return buffer[index];
+    }
+
+    void clear() {
+        head = 0;
+        tail = 0;
+        count = 0;
     }
 };
 
