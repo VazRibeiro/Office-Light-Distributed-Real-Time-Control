@@ -14,19 +14,22 @@ class circular_buffer {
 
     circular_buffer() : head {0}, tail{0}, count{0} {};
     ~circular_buffer() {};
-    int capacity() { return buffer_size; }
+    int capacity() const { return buffer_size; }
     int size() { return count; }
     bool is_empty() { return count == 0; }
     bool is_full() { return count == buffer_size; }
     T peak() { return buffer[tail]; } // inspect but keep value invalid if buffer empty
+    int getHead() const { return head; }
 
-    void put(T elem) {//add an element to the buffer
-        if(!is_full()) {
-            buffer[head++] = elem;
-            if(head == buffer_size) head = 0;
+    void put(T elem) {
+        buffer[head] = elem;
+        head = (head + 1) % buffer_size;
+        if (count == buffer_size) {
+            tail = (tail + 1) % buffer_size;
+        } else {
             count++;
-        } //does nothing if buffer full
-    }
+        }
+    } //update head with wraparound if necessary, also update tail if buffer already full
 
     T take() {//remove an element from the buffer
         T tmp_tail = buffer[tail]; //invalid if buffer empty
@@ -35,6 +38,10 @@ class circular_buffer {
             if(tail == buffer_size) tail = 0;
         }
         return tmp_tail;
+    }
+
+    T read(int index) const {
+        return buffer[index];
     }
 };
 

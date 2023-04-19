@@ -3,7 +3,8 @@
 // Constructor
 Data::Data() 
   : boardNumber(0),
-    dutyCycle(0), 
+    dutyCycle(),
+    illuminance(),
     reference(0), 
     occupancy(false), 
     windUp(false), 
@@ -22,7 +23,13 @@ String Data::getBoardNumber() const {
 }
 
 float Data::getDutyCycle() const {
-  return dutyCycle;
+  int recent_index = (dutyCycle.getHead() + dutyCycle.capacity() - 1) % dutyCycle.capacity();
+  return dutyCycle.read(recent_index);
+}
+
+float Data::getIllumminance() const {
+  int recent_index = (illuminance.getHead() + illuminance.capacity() - 1) % illuminance.capacity();  
+  return illuminance.read(recent_index);
 }
 
 float Data::getReference() const {
@@ -73,7 +80,11 @@ void Data::setBoardNumber(String boardNumb) {
 }
 
 void Data::setDutyCycle(float duty) {
-  dutyCycle = duty;
+  dutyCycle.put(duty);
+}
+
+void Data::setIlluminance(float illum) {
+  illuminance.put(illum);
 }
 
 void Data::setReference(float ref) {

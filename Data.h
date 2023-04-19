@@ -6,7 +6,8 @@
 class Data {
 private:
   String boardNumber;
-  float dutyCycle;
+  circular_buffer<float, 6000> dutyCycle;
+  circular_buffer<float, 6000> illuminance;
   float reference;
   bool occupancy;
   bool windUp;
@@ -24,7 +25,8 @@ public:
 
   // Getter functions
   String getBoardNumber() const;
-  float getDutyCycle() const;
+  float getDutyCycle() const; 
+  float getIllumminance() const;
   float getReference() const;
   bool getOccupancy() const;
   bool getWindUp() const;
@@ -39,6 +41,7 @@ public:
   // Setter functions
   void setBoardNumber(String boardNumb);
   void setDutyCycle(float duty);
+  void setIlluminance(float illum);
   void setReference(float ref);
   void setOccupancy(bool occ);
   void setWindUp(bool wu);

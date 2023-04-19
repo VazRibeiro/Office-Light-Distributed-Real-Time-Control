@@ -151,7 +151,8 @@ void loop() {
     if(timer1_fired){
       communicationParser.canCommunicationSM(); // CAN communication state machine
       double lux;
-      lux = getLuminance();// Read voltage
+      communicationParser.Data::setIlluminance((float)getLuminance());
+      lux = communicationParser.Data::getIllumminance();// Read voltage
       period = micros()-counter;// period to calculate jitter
       counter = micros();
       
