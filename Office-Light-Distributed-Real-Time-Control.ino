@@ -39,6 +39,8 @@ volatile bool timer1_fired {false};
 struct repeating_timer timer1;
 volatile bool timer2_fired {false};
 struct repeating_timer timer2;
+volatile bool timer3_fired {false};
+struct repeating_timer timer3;
 
 
 ////////////////////////////////// CALLBACKS //////////////////////////////////
@@ -59,6 +61,17 @@ bool my_repeating_timer_callback2(struct repeating_timer *t )
   if(!timer2_fired){
     noInterrupts();
     timer2_fired = true;
+    interrupts();
+  }
+  return true;
+}
+
+// Callback for timer 3
+bool my_repeating_timer_callback3(struct repeating_timer *t )
+{
+  if(!timer3_fired){
+    noInterrupts();
+    timer3_fired = true;
     interrupts();
   }
   return true;
@@ -89,6 +102,7 @@ void setup(){
   // Setup interrupts
   add_repeating_timer_ms( 10,my_repeating_timer_callback1,NULL, &timer1); //100 Hz interrupt
   add_repeating_timer_ms( 50,my_repeating_timer_callback2,NULL, &timer2); //20 Hz interrupt
+  add_repeating_timer_ms( 1,my_repeating_timer_callback3,NULL, &timer3);  //1000 Hz interrupt
   pinMode(LED_PIN, OUTPUT);
   pinMode(LED_BUILTIN, OUTPUT);
   analogReadResolution(12);
@@ -147,9 +161,14 @@ void loop() {
       timer2_fired = false;
     }
 
+    // CAN running at 1000 Hz
+    if(timer3_fired){
+      communicationParser.canCommunicationSM(); // CAN communication state machine
+      timer3_fired = false;
+    }
+
     // Control running at 100 Hz
     if(timer1_fired){
-      communicationParser.canCommunicationSM(); // CAN communication state machine
       double lux;
       communicationParser.Data::setIlluminance((float)getLuminance());
       lux = communicationParser.Data::getIllumminance();// Read voltage

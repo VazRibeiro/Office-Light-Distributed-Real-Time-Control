@@ -9,6 +9,8 @@ class Parser : public Data, public CustomCAN {
   public:
     typedef void (Data::*setFloat)(float);
     typedef float (Data::*getFloat)() const;
+    typedef void (Data::*setBool)(bool);
+    typedef bool (Data::*getBool)() const;
 
     Parser();
     void serialCommunicationSM(); //calls the other serial functions
@@ -32,6 +34,8 @@ class Parser : public Data, public CustomCAN {
       GET_OCCUPANCY,
       SET_ANTI_WINDUP,
       GET_ANTI_WINDUP,
+      SET_FEEDBACK,
+      GET_FEEDBACK,
       GET_LAST_MINUTE_BUFFER,
       RESTART
     };
@@ -76,6 +80,8 @@ class Parser : public Data, public CustomCAN {
     bool tryGetDutyCycle(String* wordsArray, can_frame msg);
     bool trySetCommandFloat(String* wordsArray, can_frame msg, int messageIdentifier, String commandIdentifier, setFloat func, float min, float max);
     bool tryGetCommandFloat(String* wordsArray, can_frame msg, int messageIdentifier, String commandIdentifier, getFloat func);
+    bool trySetCommandBool(String* wordsArray, can_frame msg, int messageIdentifier, String commandIdentifier, setBool func);
+    bool tryGetCommandBool(String* wordsArray, can_frame msg, int messageIdentifier, String commandIdentifier, getBool func);
     void actuateCommand(String* wordsArray); //Sets flags and executes getters
 };
 
