@@ -16,7 +16,8 @@ Data::Data()
     illuminanceStreamValues(false),
     dutyCycleStreamValues(false),
     sendLMBuffer(false),
-    restart(false)
+    restart(false),
+    calibrationOver(false)
 { }
 
 // Getter functions //////////////////////////////////////////
@@ -90,6 +91,10 @@ bool Data::getRestart() const {
   return restart;
 }
 
+bool Data::getCalibrationOver() const {
+  return calibrationOver;
+}
+
 
 // Setter functions ///////////////////////////////////////////////
 
@@ -151,4 +156,8 @@ void Data::setSendLMBuffer(bool sendLM) {
 
 void Data::setRestart(bool rstrt) {
   restart = rstrt;
+}
+
+void Data::setCalibrationOver(bool calib) {
+  calibrationOver = calib;
 }

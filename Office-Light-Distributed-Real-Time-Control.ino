@@ -13,7 +13,6 @@ uint16_t node_address;
 pid my_pid {0.01, 50, 1, 0.5}; // h, K, b, Ti
 Parser communicationParser;
 Node my_node;
-int number_of_boards;
 int board_to_calibrate = 1;
 
 // flags and auxiliary variables
@@ -115,17 +114,17 @@ void setup(){
 
 ////////////////////////////////// LOOP //////////////////////////////////
 void loop() {
-
   // Always receiving CAN messages
-  //communicationParser.canCommunicationSM(); // CAN receiver state machine
+  communicationParser.canCommunicationSM(); // CAN receiver state machine
   // CAN running at 1000 Hz
-  if(timer3_fired){
-    communicationParser.canCommunicationSM(); // CAN communication state machine
-    timer3_fired = false;
-  }
+  // if(timer3_fired){
+  //   communicationParser.canCommunicationSM(); // CAN communication state machine
+  //   timer3_fired = false;
+  // }
 
   switch (mainLoopState)
   {
+  ///////////////////////////// WAKE UP
   case WAKE_UP_MESSAGE:
     //Message and reset variables
     Serial.println("Waking up...");
@@ -204,29 +203,48 @@ void loop() {
         }
       }
       communicationParser.Data::setBoardNumber(String(index+1));
+      int number_of_boards = communicationParser.Data::getTotalNumberOfBoards();
+      // resize the vectors
+      my_node.d.resize(number_of_boards);
+      my_node.c.resize(number_of_boards);
+      my_node.y.resize(number_of_boards);
+      my_node.d_av.resize(number_of_boards);
+      my_node.k.resize(number_of_boards, std::vector<double>(number_of_boards));
+      my_node.L.resize(number_of_boards);
+      my_node.o.resize(number_of_boards);
+      std:fill(my_node.d.begin(), my_node.d.end(), 0.0);
       mainLoopState = CALIBRATION;
       break;
     }
     break;
-  case CALIBRATION:
-    // if(timer2_fired){
-    //   if (counterCalibration==20 && board_to_calibrate<=number_of_boards)
-    //   {
-    //     counterCalibration = 0;
-    //     //mensagem para todas as placas a dizer para ligar board 1,2,...
-    //     board_to_calibrate++;
-    //   } else if (board_to_calibrate>number_of_boards)
-    //   {
-    //     mainLoopState = CONTROL;
-    //     break;
-    //   }
-    //   communicationParser.canCommunicationSM(); // CAN communication state machine
-    //   counterCalibration++;
-    // }
-    Serial.println("calibration");
 
-    mainLoopState = CONTROL;
+  ///////////////////////////// CALIBRATION
+  case CALIBRATION:
+    Serial.println("Calibrating...");
+
+    /*if(timer2_fired){
+      if (counterCalibration==40 && board_to_calibrate<=communicationParser.Data::getTotalNumberOfBoards())
+      {
+        counterCalibration = 0;
+        //mensagem para todas as placas a dizer para ligar board 1,2,...
+        board_to_calibrate++;
+      } else if (board_to_calibrate>communicationParser.Data::getTotalNumberOfBoards())
+      {
+        mainLoopState = CONTROL;
+        break;
+      }
+      communicationParser.canCommunicationSM(); // CAN communication state machine
+      counterCalibration++;
+    }
+
+    if (communicationParser.Data::getCalibrationOver())
+    {*/
+      mainLoopState = CONTROL;
+    //   break;
+    // }
     break;
+
+  ///////////////////////////// CONTROL
   case CONTROL:
     // Serial running at 20 Hz
     if(timer2_fired){
@@ -245,23 +263,31 @@ void loop() {
       // Controller
       float r = communicationParser.Data::getReference();
       float y = lux;
-      float v = my_pid.compute_control(r, y); //unsaturated output
-      float u = my_pid.saturate_output(v);
-      int pwm = (int)u;
+      bool w = communicationParser.Data::getWindUp();
+      bool f = communicationParser.Data::getFeedback();
+      int pwm;
+      if(f){
+        float v = my_pid.compute_control(r, y); //unsaturated output
+        float u = my_pid.saturate_output(v);
+        int pwm = (int)u;
+        my_pid.housekeep(r, y, v, u, w);
+      }
+
+      if(!f){
+        int pwm = my_node.d_av[communicationParser.Data::getBoardNumber().toInt()];
+      }
+
       analogWrite(LED_PIN, pwm); // Set the LED
-      my_pid.housekeep(r, y, v, u);
       // float r = 0;
       // float u = 0;
       //enviar soluções do consensus: pwm de cada placa (d), custo total (somatorio custo individual*pwm individual)
-
-
       
       // Visualization commands
       if(communicationParser.Data::getIlluminanceStreamValues()){
         Serial.println("s l " + communicationParser.Data::getBoardNumber() + " " + lux + " " + millis());
       }
       if(communicationParser.Data::getDutyCycleStreamValues()){
-        Serial.println("s d " + communicationParser.Data::getBoardNumber() + " " + u/4096.0 + " " + millis());
+        Serial.println("s d " + communicationParser.Data::getBoardNumber() + " " + pwm/4096.0 + " " + millis());
       }
       
       // Plot controller
@@ -275,7 +301,7 @@ void loop() {
         Serial.print(r);
         Serial.print(",");
         Serial.print("PWM:");
-        Serial.print((u)/100.0);
+        Serial.print((pwm)/100.0);
         Serial.print(",");
         Serial.print("Lux:");
         Serial.println(lux);

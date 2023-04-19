@@ -2,6 +2,8 @@
 #include "Consensus.h"
 
 /*
+double rho = 0.07;
+
 // FUNCTION TO CHECK SOLUTION FEASIBILITY
 bool checkFeasibility(Node node, vector<double> d){ 
     double tol = 0.001; // tolerance for rounding errors
@@ -31,7 +33,7 @@ double evaluateCost(Node node, vector<double> d, double rho){
 
 // FUNCTION TO COMPUTE THE PRIMAL SOLUTION
 vector<double> consensus_iterate(Node node, double rho){
-    vector<double> d_best = {-1, -1};
+    std::vector<double> d_best = {-1, -1};
     double cost_best = 1000000; // large number
     bool sol_unconstrained = true;
     bool sol_boundary_linear = true;
@@ -45,7 +47,7 @@ vector<double> consensus_iterate(Node node, double rho){
     }
 
     // unconstrained minimum
-    vector<double> d_u(node.d_av.size());
+    std::vector<double> d_u(node.d_av.size());
     for (int i = 0; i < node.d_av.size(); i++){
         d_u[i] = (1 / rho) * z[i];
     }
@@ -54,7 +56,7 @@ vector<double> consensus_iterate(Node node, double rho){
         // IF UNCONSTRAINED SOLUTION EXISTS, THEN IT IS OPTIMAL
         // NO NEED TO COMPUTE THE OTHER
         double cost_unconstrained = evaluate_cost(node, d_u, rho);
-        if (cost_unconstrained < cost_best){
+        if (cost_unconstrained <= cost_best){
             d_best = d_u;
             cost_best = cost_unconstrained;
             return d_best, cost_best;
@@ -62,7 +64,7 @@ vector<double> consensus_iterate(Node node, double rho){
     }
 
     // compute minimum constrained to linear boundary
-    vector<double> d_bl(node.d_av.size());
+    std::vector<double> d_bl(node.d_av.size());
     double numerator = 0;
     double denominator = 0;
     for (int i = 0; i < node.d_av.size(); i++){
@@ -88,7 +90,7 @@ vector<double> consensus_iterate(Node node, double rho){
     }
 
     // compute minimum constrained to 0 boundary
-    vector<double> d_b0(node.d_av.size());
+    std::vector<double> d_b0(node.d_av.size());
     for (int i = 0; i < node.d_av.size(); i++){
         d_b0[i] = (1 / rho) * z[i];
     }
@@ -105,7 +107,7 @@ vector<double> consensus_iterate(Node node, double rho){
     }
 
     // compute minimum constrained to 100 boundary
-    vector<double> d_b1(node.d_av.size());
+    std::vector<double> d_b1(node.d_av.size());
     for (int i = 0; i < node.d_av.size(); i++){
         d_b1[i] = (1 / rho) * z[i];
     }
@@ -122,7 +124,7 @@ vector<double> consensus_iterate(Node node, double rho){
     }
 
     // compute minimum constrained to linear and 0 boundary
-vector<double> d_l0 = (1/rho)*z - 
+    std::vector<double> d_l0 = (1/rho)*z - 
                      (1/node.m)*node.k*(node.o-node.L) +
                      (1/rho/node.m)*node.k*(node.k[node.index]*z[node.index]-
                                             dot(z,node.k));
@@ -139,7 +141,7 @@ vector<double> d_l0 = (1/rho)*z -
     }
 
     // compute minimum constrained to linear and 100 boundary
-    vector<double> d_l1 = (1/rho)*z -
+    std::vector<double> d_l1 = (1/rho)*z -
                      (1/node.m)*node.k*(node.o-node.L+100*node.k[node.index]) +
                      (1/rho/node.m)*node.k*(node.k[node.index]*z[node.index]-
                                             dot(z,node.k));
@@ -155,10 +157,13 @@ vector<double> d_l0 = (1/rho)*z -
         }
     }
     
-    // d = d_best;
-    // cost = cost_best;
-
     return d_best, cost_best;
 };
 
+vector<double> consensus(Node node, vector<double> d, double rho){
+
+    for (iterations=1; iterations<50;iterations++){
+        node.d, node.c = consensus_iterate(node, rho);
+    }
+}
 */

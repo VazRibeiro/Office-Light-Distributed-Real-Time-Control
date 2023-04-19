@@ -20,6 +20,7 @@ private:
   bool dutyCycleStreamValues;
   bool sendLMBuffer;
   bool restart;
+  bool calibrationOver;
 
 public:
   // Constructor
@@ -44,6 +45,7 @@ public:
     dutyCycleStreamValues = false;
     sendLMBuffer = false;
     restart = false;
+    calibrationOver = false;
   }
 
   // Getter functions
@@ -64,6 +66,7 @@ public:
   bool getDutyCycleStreamValues() const;
   bool getSendLMBuffer() const;
   bool getRestart() const;
+  bool getCalibrationOver() const;
 
   // Setter functions
   void setBoardNumber(String boardNumb);
@@ -81,6 +84,7 @@ public:
   void setDutyCycleStreamValues(bool streamD);
   void setSendLMBuffer(bool sendLM);
   void setRestart(bool rstrt);
+  void setCalibrationOver(bool calib);
 };
 
 #endif
