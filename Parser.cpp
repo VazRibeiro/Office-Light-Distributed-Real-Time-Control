@@ -449,7 +449,7 @@ bool Parser::tryGetCommandFloat(String* wordsArray, can_frame msg, int messageId
 // errors and destination, then execute it and send a response or reroute it.
 // This function works with <val> of type bool
 bool Parser::tryGetCommandBool(String* wordsArray, can_frame msg, int messageIdentifier, String commandIdentifier, getBool func){
-  if (wordsArray[0]=="g" && wordsArray[1]==commandIdentifier|| msg.data[0] == messageIdentifier){
+  if (wordsArray[0]=="g" && wordsArray[1]==commandIdentifier || msg.data[0] == messageIdentifier){
     if (source==SERIAL_INPUT)
     {
       bool iContainsNonNumeric = false;
@@ -533,18 +533,58 @@ bool Parser::tryGetCommandBool(String* wordsArray, can_frame msg, int messageIde
   return false;
 }
 
-
+// Sends wake up message to other boards to introduce your node_id
 void Parser::tryWakeUp(can_frame msg){
-  if (source==CAN_INPUT)
+  if (source==CAN_INPUT  && msg.data[0] == WAKE_UP_PARSER)
   { //If received via CAN
+      Serial.println("wake up message almost received");
     receiverBoardNumber = msg.can_id & FILTER_BOARD_NUMBER;                      // extract the receiver
     senderBoardNumber = (msg.can_id >> BOARD_NUMBER_BITS) & FILTER_BOARD_NUMBER; // extract the sender
-    if (receiverBoardNumber==0 && msg.can_dlc==0)
+    if (receiverBoardNumber==0 && msg.can_dlc==1)
     {
       Data::setNode(senderBoardNumber);
+      Data::setTimeout(0);
       Serial.println("wake up message received");
     }
   }
+}
+
+// Restart
+bool Parser::tryRestart(String* wordsArray, can_frame msg){
+  int numWords = 0;
+  // Check number of words
+  for (size_t i = 0; i < sizeof(wordsArray); i++)
+  {
+    if (wordsArray[i].length())
+    {
+      numWords++;
+    }
+  }
+  if (source==SERIAL_INPUT && wordsArray[0] == "r" && numWords == 1)
+  {
+    can_frame canMsgTx;
+    canMsgTx.can_id = (0 & FILTER_BOARD_NUMBER) |
+                      ((Data::getBoardNumber().toInt() & FILTER_BOARD_NUMBER) << BOARD_NUMBER_BITS) |
+                      CAN_EFF_FLAG;
+    canMsgTx.can_dlc = 1;
+    canMsgTx.data[0] = RESTART;
+    CustomCAN::SendMessage(&canMsgTx);
+    Data::setRestart(true);
+    Serial.println("Restarting");
+    return true;
+  }
+  else if (source==CAN_INPUT)
+  {
+    receiverBoardNumber = msg.can_id & FILTER_BOARD_NUMBER;                      // extract the receiver
+    senderBoardNumber = (msg.can_id >> BOARD_NUMBER_BITS) & FILTER_BOARD_NUMBER; // extract the sender
+    if (receiverBoardNumber==0 && msg.can_dlc==1 && msg.data[0] == RESTART)
+    {
+      Data::setRestart(true);
+      Serial.println("Restarting");
+      return true;
+    }
+  }
+  return false;
 }
 
 
@@ -558,6 +598,11 @@ void Parser::actuateCommand(String* wordsArray){
 
   // Wake up identification
   tryWakeUp(local_msg);
+
+  // "r" Restart
+  if (tryRestart(wordsArray, local_msg)){
+    return;
+  }
   
   // “d <i> <val>” Set duty cycle
   if (trySetCommandFloat(wordsArray,local_msg,SET_DUTY_CYCLE,"d",&Data::setDutyCycle,0,100)){

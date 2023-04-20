@@ -34,7 +34,8 @@ class Parser : public Data, public CustomCAN {
       ACTUATE
     };
     enum canMessageIdentifier {
-      NONE,
+      ZERO,
+      RESTART,
       SET_DUTY_CYCLE,
       GET_DUTY_CYCLE,
       SET_LUX_REFERENCE,
@@ -48,7 +49,8 @@ class Parser : public Data, public CustomCAN {
       GET_FEEDBACK,
       GET_LAST_MINUTE_BUFFER,
       GET_BOARD,
-      RESTART
+      WAKE_UP_PARSER,
+      NONE
     };
     enum inputSource {
       SERIAL_INPUT,
@@ -91,6 +93,7 @@ class Parser : public Data, public CustomCAN {
     bool trySetCommandBool(String* wordsArray, can_frame msg, int messageIdentifier, String commandIdentifier, setBool func);
     bool tryGetCommandBool(String* wordsArray, can_frame msg, int messageIdentifier, String commandIdentifier, getBool func);
     void tryWakeUp(can_frame msg);
+    bool tryRestart(String* wordsArray, can_frame msg);
     void actuateCommand(String* wordsArray); //Sets flags and executes getters
 };
 

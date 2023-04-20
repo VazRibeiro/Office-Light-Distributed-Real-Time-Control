@@ -9,7 +9,8 @@ class CustomCAN {
     // Constructor
     CustomCAN();
     
-    void setupCAN(gpio_irq_callback_t callback, int boardNumber);
+    void setupCAN(gpio_irq_callback_t callback);
+    void setupFilters(int boardNumber);
     void ReadMessage();
     void SendMessage(const can_frame *msg);
     void SendWakeUpMessage(int node_adress, int FILTER_BOARD_NUMBER, int BOARD_NUMBER_BITS);

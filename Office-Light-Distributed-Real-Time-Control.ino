@@ -39,7 +39,6 @@ bool canReceive {true};
 int counterCalibration{20};
 int counterWakeUp{20};
 int counterID{0};
-int counterTimeOut{0};
 
 // IO
 const int LED_PIN {28};
@@ -108,7 +107,7 @@ void setup(){
   analogWriteResolution(12);
   Serial.begin(9600);
   Serial.setTimeout(0); //The serial communications does not need to wait on more info coming in for this use case.
-  communicationParser.CustomCAN::setupCAN(&read_interrupt, atoi(communicationParser.Data::getBoardNumber().c_str()));
+  communicationParser.CustomCAN::setupCAN(&read_interrupt);
 }
 
 
@@ -126,6 +125,7 @@ void loop() {
   {
   ///////////////////////////// WAKE UP
   case WAKE_UP_MESSAGE:
+    delay(3000);
     //Message and reset variables
     Serial.println("Waking up...");
     communicationParser.reset();
@@ -133,7 +133,6 @@ void loop() {
     counterCalibration=20;
     counterWakeUp=20;
     counterID=0;
-    counterTimeOut=0;
     mainLoopState = WAKE_UP_LOOP;
     break;
   case WAKE_UP_LOOP:
@@ -142,7 +141,7 @@ void loop() {
     {
     case INCREMENT_ID:
       counterWakeUp=0;
-      if (node_address == counterID)
+      if (16384 == counterID)
       { //reached id, send it
         communicationParser.CustomCAN::SendWakeUpMessage(node_address,0x3FFF,14);
         wakeUpState = SYNCHRONIZE;
@@ -151,7 +150,6 @@ void loop() {
       else
       {
         counterID++;
-    Serial.println(counterID);
         wakeUpState = COUNT;
         break;
       }
@@ -167,9 +165,10 @@ void loop() {
       //Keep refreshing timeout
       if (timer3_fired)
       {
-        counterTimeOut++;
+        communicationParser.Data::setTimeout(communicationParser.Data::getTimeout()+1);
+        timer3_fired = false;
       }
-      if (counterTimeOut==3000) // 3seconds
+      if (communicationParser.Data::getTimeout()==5000) // 5seconds
       {
         Serial.println("Timed out...");
         wakeUpState = FINISHED;
@@ -213,6 +212,8 @@ void loop() {
       my_node.L.resize(number_of_boards);
       my_node.o.resize(number_of_boards);
       std:fill(my_node.d.begin(), my_node.d.end(), 0.0);
+      //Add can filters for the board number
+      communicationParser.CustomCAN::setupFilters(atoi(communicationParser.Data::getBoardNumber().c_str()));
       mainLoopState = CALIBRATION;
       break;
     }
@@ -239,6 +240,7 @@ void loop() {
 
     if (communicationParser.Data::getCalibrationOver())
     {*/
+    Serial.println("Ready to operate!");
       mainLoopState = CONTROL;
     //   break;
     // }

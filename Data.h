@@ -21,6 +21,7 @@ private:
   bool sendLMBuffer;
   bool restart;
   bool calibrationOver;
+  int timeout;
 
 public:
   // Constructor
@@ -36,8 +37,8 @@ public:
     node.clear();
     reference = 0;
     occupancy = false;
-    windUp = false;
-    feedback = false;
+    windUp = true;
+    feedback = true;
     externalIlluminance = 0.0;
     powerConsumption = 0.0;
     lastRestartTime = 0.0;
@@ -46,6 +47,7 @@ public:
     sendLMBuffer = false;
     restart = false;
     calibrationOver = false;
+    timeout = 0;
   }
 
   // Getter functions
@@ -67,6 +69,7 @@ public:
   bool getSendLMBuffer() const;
   bool getRestart() const;
   bool getCalibrationOver() const;
+  int getTimeout() const;
 
   // Setter functions
   void setBoardNumber(String boardNumb);
@@ -85,6 +88,7 @@ public:
   void setSendLMBuffer(bool sendLM);
   void setRestart(bool rstrt);
   void setCalibrationOver(bool calib);
+  void setTimeout(int timeo);
 };
 
 #endif

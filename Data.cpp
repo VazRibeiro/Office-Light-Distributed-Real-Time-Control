@@ -8,8 +8,8 @@ Data::Data()
     node(),
     reference(0), 
     occupancy(false), 
-    windUp(false), 
-    feedback(false), 
+    windUp(true), 
+    feedback(true), 
     externalIlluminance(0.0), 
     powerConsumption(0.0), 
     lastRestartTime(0.0), 
@@ -17,7 +17,8 @@ Data::Data()
     dutyCycleStreamValues(false),
     sendLMBuffer(false),
     restart(false),
-    calibrationOver(false)
+    calibrationOver(false),
+    timeout(0)
 { }
 
 // Getter functions //////////////////////////////////////////
@@ -95,6 +96,9 @@ bool Data::getCalibrationOver() const {
   return calibrationOver;
 }
 
+int Data::getTimeout() const {
+  return timeout;
+}
 
 // Setter functions ///////////////////////////////////////////////
 
@@ -160,4 +164,8 @@ void Data::setRestart(bool rstrt) {
 
 void Data::setCalibrationOver(bool calib) {
   calibrationOver = calib;
+}
+
+void Data::setTimeout(int timeo) {
+  timeout = timeo;
 }
