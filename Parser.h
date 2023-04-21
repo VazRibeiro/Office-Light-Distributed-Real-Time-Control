@@ -26,13 +26,7 @@ class Parser : public Data, public CustomCAN {
       actuationInterval = 0;
       Data::reset();
     }
-  private:
-    // Enums
-    enum state {
-      READ,
-      PARSE,
-      ACTUATE
-    };
+
     enum canMessageIdentifier {
       ZERO,
       RESTART,
@@ -52,6 +46,15 @@ class Parser : public Data, public CustomCAN {
       WAKE_UP_PARSER,
       NONE
     };
+
+  private:
+    // Enums
+    enum state {
+      READ,
+      PARSE,
+      ACTUATE
+    };
+    
     enum inputSource {
       SERIAL_INPUT,
       CAN_INPUT

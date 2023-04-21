@@ -13,7 +13,7 @@ class CustomCAN {
     void setupFilters(int boardNumber);
     void ReadMessage();
     void SendMessage(const can_frame *msg);
-    void SendWakeUpMessage(int node_adress, int FILTER_BOARD_NUMBER, int BOARD_NUMBER_BITS);
+    void SendWakeUpMessage(int node_adress, int FILTER_BOARD_NUMBER, int BOARD_NUMBER_BITS, int msg_identifier);
     void setDataAvailable(bool data);
     bool getDataAvailable() const;
     can_frame getcanMsgRx() const;

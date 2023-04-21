@@ -20,14 +20,13 @@ private:
   bool dutyCycleStreamValues;
   bool sendLMBuffer;
   bool restart;
-  bool calibrationOver;
+  int  calibrationFlag;
+  bool calibrationAcknowledge;
   int timeout;
 
 public:
   // Constructor
   Data();
-
-  void incrementTotalNumberOfBoards();
   void reset() {
     boardNumber = "";
     dutyCycle.clear();
@@ -46,9 +45,12 @@ public:
     dutyCycleStreamValues = false;
     sendLMBuffer = false;
     restart = false;
-    calibrationOver = false;
+    calibrationFlag = 0;
+    calibrationAcknowledge = false;
     timeout = 0;
   }
+  void clearNodeBuffer() { node.clear();}
+  void incrementcalibrationFlag() { calibrationFlag++;}
 
   // Getter functions
   String getBoardNumber() const;
@@ -68,7 +70,8 @@ public:
   bool getDutyCycleStreamValues() const;
   bool getSendLMBuffer() const;
   bool getRestart() const;
-  bool getCalibrationOver() const;
+  int getcalibrationFlag() const;
+  bool getcalibrationAcknowledge() const;
   int getTimeout() const;
 
   // Setter functions
@@ -87,7 +90,8 @@ public:
   void setDutyCycleStreamValues(bool streamD);
   void setSendLMBuffer(bool sendLM);
   void setRestart(bool rstrt);
-  void setCalibrationOver(bool calib);
+  void setcalibrationFlag(int calib);
+  void setcalibrationAcknowledge(bool ackn);
   void setTimeout(int timeo);
 };
 

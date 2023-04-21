@@ -39,6 +39,7 @@ bool canReceive {true};
 int counterCalibration{20};
 int counterWakeUp{20};
 int counterID{0};
+int counterCalibrationTime{0};
 
 // IO
 const int LED_PIN {28};
@@ -126,13 +127,14 @@ void loop() {
   ///////////////////////////// WAKE UP
   case WAKE_UP_MESSAGE:
     delay(3000);
-    //Message and reset variables
+    //Message and reset variables only once at start
     Serial.println("Waking up...");
     communicationParser.reset();
     communicationParser.Data::setNode(node_address);
     counterCalibration=20;
     counterWakeUp=20;
     counterID=0;
+    counterCalibrationTime=0;
     mainLoopState = WAKE_UP_LOOP;
     break;
   case WAKE_UP_LOOP:
@@ -143,7 +145,8 @@ void loop() {
       counterWakeUp=0;
       if (16384 == counterID)
       { //reached id, send it
-        communicationParser.CustomCAN::SendWakeUpMessage(node_address,0x3FFF,14);
+        communicationParser.CustomCAN::SendWakeUpMessage(node_address,0x3FFF,14,
+                            communicationParser.Parser::canMessageIdentifier::WAKE_UP_PARSER);
         wakeUpState = SYNCHRONIZE;
         break;
       }
@@ -164,7 +167,7 @@ void loop() {
     case SYNCHRONIZE:
       //Keep refreshing timeout
       if (timer3_fired)
-      {
+      { // increment timeout counter
         communicationParser.Data::setTimeout(communicationParser.Data::getTimeout()+1);
         timer3_fired = false;
       }
@@ -194,6 +197,7 @@ void loop() {
             }
         }
       }
+      // Find my index in the sorted array of node addresses: it will be my board number
       int index;
       for (int i = 0; i < n; i++) {
         if (arr[i] == node_address) {
@@ -201,6 +205,7 @@ void loop() {
           break;
         }
       }
+      //Set board number
       communicationParser.Data::setBoardNumber(String(index+1));
       int number_of_boards = communicationParser.Data::getTotalNumberOfBoards();
       // resize the vectors
@@ -214,6 +219,9 @@ void loop() {
       std:fill(my_node.d.begin(), my_node.d.end(), 0.0);
       //Add can filters for the board number
       communicationParser.CustomCAN::setupFilters(atoi(communicationParser.Data::getBoardNumber().c_str()));
+      //No longer need to know other's node addresses
+      communicationParser.Data::clearNodeBuffer();
+      //Move to calibration
       mainLoopState = CALIBRATION;
       break;
     }
@@ -222,28 +230,39 @@ void loop() {
   ///////////////////////////// CALIBRATION
   case CALIBRATION:
     Serial.println("Calibrating...");
-
-    /*if(timer2_fired){
-      if (counterCalibration==40 && board_to_calibrate<=communicationParser.Data::getTotalNumberOfBoards())
-      {
-        counterCalibration = 0;
-        //mensagem para todas as placas a dizer para ligar board 1,2,...
-        board_to_calibrate++;
-      } else if (board_to_calibrate>communicationParser.Data::getTotalNumberOfBoards())
-      {
-        mainLoopState = CONTROL;
-        break;
-      }
-      communicationParser.canCommunicationSM(); // CAN communication state machine
-      counterCalibration++;
+    if (communicationParser.Data::getcalibrationFlag()==0 && communicationParser.Data::getBoardNumber()=="1")
+    {
+      communicationParser.Data::setcalibrationFlag(1);
+      //send message with id flag-1
     }
-
-    if (communicationParser.Data::getCalibrationOver())
-    {*/
-    Serial.println("Ready to operate!");
+    else if (communicationParser.Data::getBoardNumber()=="1" &&
+            communicationParser.Data::getcalibrationFlag()<=communicationParser.Data::getTotalNumberOfBoards())
+    {
+      if (communicationParser.Data::getcalibrationAcknowledge())
+      {
+        if (timer2_fired)
+        {
+          timer2_fired = false;
+          counterCalibrationTime++;
+        }
+        if (counterCalibration==20)//1second interval
+        {
+          counterCalibrationTime = 0;
+          communicationParser.Data::setcalibrationAcknowledge(false);
+          communicationParser.Data::incrementcalibrationFlag();
+          if (communicationParser.Data::getcalibrationFlag()<=communicationParser.Data::getTotalNumberOfBoards())
+          {
+            /* send message */
+          }
+        }
+      }
+    }
+    else if (communicationParser.Data::getcalibrationFlag()>communicationParser.Data::getTotalNumberOfBoards())
+    {
+      Serial.println("Ready to operate!");
       mainLoopState = CONTROL;
-    //   break;
-    // }
+      break;
+    }
     break;
 
   ///////////////////////////// CONTROL
@@ -271,12 +290,12 @@ void loop() {
       if(f){
         float v = my_pid.compute_control(r, y); //unsaturated output
         float u = my_pid.saturate_output(v);
-        int pwm = (int)u;
+        pwm = (int)u;
         my_pid.housekeep(r, y, v, u, w);
       }
 
       if(!f){
-        int pwm = my_node.d_av[communicationParser.Data::getBoardNumber().toInt()];
+        pwm = my_node.d_av[communicationParser.Data::getBoardNumber().toInt()];
       }
 
       analogWrite(LED_PIN, pwm); // Set the LED

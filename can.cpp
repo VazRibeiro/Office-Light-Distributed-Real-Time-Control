@@ -57,12 +57,12 @@ can_frame CustomCAN::getcanMsgRx() const {
     return canMsgRx;
 }
 
-void CustomCAN::SendWakeUpMessage(int node_adress, int FILTER_BOARD_NUMBER, int BOARD_NUMBER_BITS){
+void CustomCAN::SendWakeUpMessage(int node_adress, int FILTER_BOARD_NUMBER, int BOARD_NUMBER_BITS, int msg_identifier){
     can_frame canMsgTx;
     canMsgTx.can_id =   (0 & FILTER_BOARD_NUMBER) |
                         ((node_adress & FILTER_BOARD_NUMBER) << BOARD_NUMBER_BITS) |
                         CAN_EFF_FLAG;
     canMsgTx.can_dlc = 1;
-    canMsgTx.data[0] = 15;
+    canMsgTx.data[0] = msg_identifier;
     SendMessage(&canMsgTx);
 }

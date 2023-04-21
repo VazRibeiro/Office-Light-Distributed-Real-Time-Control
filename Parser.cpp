@@ -537,14 +537,12 @@ bool Parser::tryGetCommandBool(String* wordsArray, can_frame msg, int messageIde
 void Parser::tryWakeUp(can_frame msg){
   if (source==CAN_INPUT  && msg.data[0] == WAKE_UP_PARSER)
   { //If received via CAN
-      Serial.println("wake up message almost received");
     receiverBoardNumber = msg.can_id & FILTER_BOARD_NUMBER;                      // extract the receiver
     senderBoardNumber = (msg.can_id >> BOARD_NUMBER_BITS) & FILTER_BOARD_NUMBER; // extract the sender
     if (receiverBoardNumber==0 && msg.can_dlc==1)
     {
       Data::setNode(senderBoardNumber);
       Data::setTimeout(0);
-      Serial.println("wake up message received");
     }
   }
 }

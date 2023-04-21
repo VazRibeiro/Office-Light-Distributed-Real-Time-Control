@@ -17,7 +17,8 @@ Data::Data()
     dutyCycleStreamValues(false),
     sendLMBuffer(false),
     restart(false),
-    calibrationOver(false),
+    calibrationFlag(0),
+    calibrationAcknowledge(0),
     timeout(0)
 { }
 
@@ -92,8 +93,12 @@ bool Data::getRestart() const {
   return restart;
 }
 
-bool Data::getCalibrationOver() const {
-  return calibrationOver;
+int Data::getcalibrationFlag() const {
+  return calibrationFlag;
+}
+
+bool Data::getcalibrationAcknowledge() const {
+  return calibrationAcknowledge;
 }
 
 int Data::getTimeout() const {
@@ -162,8 +167,12 @@ void Data::setRestart(bool rstrt) {
   restart = rstrt;
 }
 
-void Data::setCalibrationOver(bool calib) {
-  calibrationOver = calib;
+void Data::setcalibrationFlag(int calib) {
+  calibrationFlag = calib;
+}
+
+void Data::setcalibrationAcknowledge(bool ackn) {
+  calibrationAcknowledge = ackn;
 }
 
 void Data::setTimeout(int timeo) {
