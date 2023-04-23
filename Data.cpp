@@ -17,8 +17,8 @@ Data::Data()
     dutyCycleStreamValues(false),
     sendLMBuffer(false),
     restart(false),
-    calibrationFlag(0),
-    calibrationAcknowledge(0),
+    calibrationFlag(-1),
+    calibrationAcknowledge(1),
     timeout(0)
 { }
 
@@ -97,7 +97,7 @@ int Data::getcalibrationFlag() const {
   return calibrationFlag;
 }
 
-bool Data::getcalibrationAcknowledge() const {
+int Data::getcalibrationAcknowledge() const {
   return calibrationAcknowledge;
 }
 
@@ -171,7 +171,7 @@ void Data::setcalibrationFlag(int calib) {
   calibrationFlag = calib;
 }
 
-void Data::setcalibrationAcknowledge(bool ackn) {
+void Data::setcalibrationAcknowledge(int ackn) {
   calibrationAcknowledge = ackn;
 }
 

@@ -1,8 +1,10 @@
 #include "ADC.h"
-
+// IO
 const int SENSOR_PIN = 26;
+// software low pass filter
 int writeIndexADC = 0;
 float voltageArray[ADC_BUFFER_SIZE];
+// math variables
 const int R = 10000;
 const int b = 6; // for middle board 2 set to 5.6
 const float m = -0.8;

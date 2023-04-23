@@ -8,7 +8,7 @@ private:
   String boardNumber;
   circular_buffer<float, 6000> dutyCycle;
   circular_buffer<float, 6000> illuminance;
-  circular_buffer<int,16384> node;
+  circular_buffer<int,16383> node;
   float reference;
   bool occupancy;
   bool windUp;
@@ -20,9 +20,11 @@ private:
   bool dutyCycleStreamValues;
   bool sendLMBuffer;
   bool restart;
-  int  calibrationFlag;
-  bool calibrationAcknowledge;
+  int calibrationFlag;
+  int calibrationAcknowledge;
   int timeout;
+  float K[150][150] = {0};
+  float O[150] = {0};
 
 public:
   // Constructor
@@ -45,12 +47,23 @@ public:
     dutyCycleStreamValues = false;
     sendLMBuffer = false;
     restart = false;
-    calibrationFlag = 0;
-    calibrationAcknowledge = false;
+    calibrationFlag = -1;
+    calibrationAcknowledge = 1;
     timeout = 0;
+    for (int i = 0; i < 150; i++) {
+      O[i] = 0;
+      for (int j = 0; j < 150; j++) {
+        K[i][j] = 0;
+      }
+    }
   }
   void clearNodeBuffer() { node.clear();}
   void incrementcalibrationFlag() { calibrationFlag++;}
+  void incrementcalibrationAcknowledge() { calibrationAcknowledge++;}
+  float getK(int i, int j) const { return K[i][j];}
+  void setK(int i, int j, float k) {K[i][j]=k;}
+  float getO(int i) const { return O[i];}
+  void setO(int i, float o) {O[i]=o;}
 
   // Getter functions
   String getBoardNumber() const;
@@ -71,7 +84,7 @@ public:
   bool getSendLMBuffer() const;
   bool getRestart() const;
   int getcalibrationFlag() const;
-  bool getcalibrationAcknowledge() const;
+  int getcalibrationAcknowledge() const;
   int getTimeout() const;
 
   // Setter functions
@@ -91,7 +104,7 @@ public:
   void setSendLMBuffer(bool sendLM);
   void setRestart(bool rstrt);
   void setcalibrationFlag(int calib);
-  void setcalibrationAcknowledge(bool ackn);
+  void setcalibrationAcknowledge(int ackn);
   void setTimeout(int timeo);
 };
 

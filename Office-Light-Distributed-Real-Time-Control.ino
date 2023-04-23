@@ -8,6 +8,7 @@
 // Flash
 uint8_t this_pico_flash_id[8];
 uint16_t node_address;
+MCP2515::ERROR err;
 
 // Class instances
 pid my_pid {0.01, 50, 1, 0.5}; // h, K, b, Ti
@@ -37,9 +38,10 @@ bool plotControl {false};
 bool canSend {true};
 bool canReceive {true};
 int counterCalibration{20};
-int counterWakeUp{20};
 int counterID{0};
 int counterCalibrationTime{0};
+int timerCAN{0};
+int previousTimerCAN{0};
 
 // IO
 const int LED_PIN {28};
@@ -89,8 +91,8 @@ bool my_repeating_timer_callback3(struct repeating_timer *t )
 
 //the interrupt service routine for CAN
 void read_interrupt(uint gpio, uint32_t events) {
-  communicationParser.CustomCAN::ReadMessage();
-  communicationParser.CustomCAN::setDataAvailable(true);
+  err = communicationParser.ReadMessage();
+  communicationParser.incrementDataAvailable();
 }
 
 ////////////////////////////////// SETUP //////////////////////////////////
@@ -100,7 +102,7 @@ void setup(){
   node_address = (this_pico_flash_id[7] << 8) | (this_pico_flash_id[6] & 0xFC);
   // Setup interrupts
   add_repeating_timer_ms( 10,my_repeating_timer_callback1,NULL, &timer1); //100 Hz interrupt
-  add_repeating_timer_ms( 50,my_repeating_timer_callback2,NULL, &timer2); //20 Hz interrupt
+  add_repeating_timer_ms( 1000,my_repeating_timer_callback2,NULL, &timer2); //20 Hz interrupt
   add_repeating_timer_ms( 1,my_repeating_timer_callback3,NULL, &timer3);  //1000 Hz interrupt
   pinMode(LED_PIN, OUTPUT);
   pinMode(LED_BUILTIN, OUTPUT);
@@ -114,64 +116,73 @@ void setup(){
 
 ////////////////////////////////// LOOP //////////////////////////////////
 void loop() {
-  // Always receiving CAN messages
-  communicationParser.canCommunicationSM(); // CAN receiver state machine
+  if (communicationParser.getDataAvailable()!=0)
+  {
+    Serial.println(communicationParser.getDataAvailable());
+  }
+  
   // CAN running at 1000 Hz
+  communicationParser.canCommunicationSM(); // CAN communication state machine
   // if(timer3_fired){
+  //   previousTimerCAN = timerCAN;
+  //   timerCAN = micros();
+  //   //Serial.println(timerCAN-previousTimerCAN);
   //   communicationParser.canCommunicationSM(); // CAN communication state machine
   //   timer3_fired = false;
   // }
-
+  //Check Can errors
+  communicationParser.checkERRORs();
+  if (err != MCP2515::ERROR_OK)
+  {
+    Serial.println("Error receiving message "+String(err));
+    err = MCP2515::ERROR_OK;
+  }
+  
   switch (mainLoopState)
   {
   ///////////////////////////// WAKE UP
   case WAKE_UP_MESSAGE:
-    delay(3000);
-    //Message and reset variables only once at start
-    Serial.println("Waking up...");
-    communicationParser.reset();
-    communicationParser.Data::setNode(node_address);
-    counterCalibration=20;
-    counterWakeUp=20;
-    counterID=0;
-    counterCalibrationTime=0;
-    mainLoopState = WAKE_UP_LOOP;
+    if (!communicationParser.getMessage2Process())
+    {
+      //Message and reset variables only once at start
+      Serial.println("Waking up...");
+      analogWrite(LED_PIN,0);
+      communicationParser.reset();
+      communicationParser.setNode(node_address);
+      counterCalibration=20;
+      counterID=0;
+      counterCalibrationTime=0;
+      mainLoopState = WAKE_UP_LOOP;
+    }
     break;
   case WAKE_UP_LOOP:
     //Find others boards and signal itself
     switch (wakeUpState)
     {
     case INCREMENT_ID:
-      counterWakeUp=0;
-      if (16384 == counterID)
-      { //reached id, send it
+      if (timer1_fired)
+      {
+        timer1_fired = false;
+        counterID = counterID + 100;
+      }
+      if (node_address >= counterID)
+      { 
         communicationParser.CustomCAN::SendWakeUpMessage(node_address,0x3FFF,14,
-                            communicationParser.Parser::canMessageIdentifier::WAKE_UP_PARSER);
+                            communicationParser.WAKE_UP_PARSER);
+        
+        Serial.println("moving on");
         wakeUpState = SYNCHRONIZE;
         break;
-      }
-      else
-      {
-        counterID++;
-        wakeUpState = COUNT;
-        break;
-      }
-      break;
-    case COUNT:
-      counterWakeUp++;
-      if (counterWakeUp==100)
-      { 
-        wakeUpState = INCREMENT_ID;
       }
       break;
     case SYNCHRONIZE:
       //Keep refreshing timeout
-      if (timer3_fired)
+      if (timer1_fired)
       { // increment timeout counter
-        communicationParser.Data::setTimeout(communicationParser.Data::getTimeout()+1);
-        timer3_fired = false;
+        communicationParser.setTimeout(communicationParser.getTimeout()+1);
+        timer1_fired = false;
       }
-      if (communicationParser.Data::getTimeout()==5000) // 5seconds
+      if (communicationParser.getTimeout()==200) // 2seconds
       {
         Serial.println("Timed out...");
         wakeUpState = FINISHED;
@@ -179,13 +190,13 @@ void loop() {
       }
       break;
     case FINISHED:
-      Serial.println("Found " + String(communicationParser.Data::getTotalNumberOfBoards()) + " boards");
+      Serial.println("Found " + String(communicationParser.getTotalNumberOfBoards()) + " boards");
       //sort my board number according to id vector
       int* arr;
-      int n = communicationParser.Data::getTotalNumberOfBoards();
+      int n = communicationParser.getTotalNumberOfBoards();
       arr = (int*)malloc(n * sizeof(int));
       for (int i = 0; i < n; i++) {
-        arr[i] = communicationParser.Data::getNode(i);
+        arr[i] = communicationParser.getNode(i);
       }
       // Bubble sort
       for (int i = 0; i < n - 1; i++) {
@@ -206,8 +217,8 @@ void loop() {
         }
       }
       //Set board number
-      communicationParser.Data::setBoardNumber(String(index+1));
-      int number_of_boards = communicationParser.Data::getTotalNumberOfBoards();
+      communicationParser.setBoardNumber(String(index+1));
+      int number_of_boards = communicationParser.getTotalNumberOfBoards();
       // resize the vectors
       my_node.d.resize(number_of_boards);
       my_node.c.resize(number_of_boards);
@@ -218,9 +229,7 @@ void loop() {
       my_node.o.resize(number_of_boards);
       std:fill(my_node.d.begin(), my_node.d.end(), 0.0);
       //Add can filters for the board number
-      communicationParser.CustomCAN::setupFilters(atoi(communicationParser.Data::getBoardNumber().c_str()));
-      //No longer need to know other's node addresses
-      communicationParser.Data::clearNodeBuffer();
+      communicationParser.CustomCAN::setupFilters(atoi(communicationParser.getBoardNumber().c_str()));
       //Move to calibration
       mainLoopState = CALIBRATION;
       break;
@@ -229,35 +238,82 @@ void loop() {
 
   ///////////////////////////// CALIBRATION
   case CALIBRATION:
-    Serial.println("Calibrating...");
-    if (communicationParser.Data::getcalibrationFlag()==0 && communicationParser.Data::getBoardNumber()=="1")
+   if (timer1_fired)
     {
-      communicationParser.Data::setcalibrationFlag(1);
-      //send message with id flag-1
+      Serial.println("acknowledge: " + communicationParser.getcalibrationAcknowledge());
+      Serial.println("flag: " + communicationParser.getcalibrationFlag());
+      counterCalibrationTime++;
+      timer1_fired=false;
     }
-    else if (communicationParser.Data::getBoardNumber()=="1" &&
-            communicationParser.Data::getcalibrationFlag()<=communicationParser.Data::getTotalNumberOfBoards())
+    // Board 1 commands the calibration.
+    // Since the total number of boards is not known at the start, only now can we set the first acknowledge
+    if (communicationParser.getcalibrationFlag()==-1 && communicationParser.getBoardNumber()=="1")
     {
-      if (communicationParser.Data::getcalibrationAcknowledge())
+      communicationParser.setcalibrationAcknowledge(communicationParser.getTotalNumberOfBoards());
+      communicationParser.setcalibrationFlag(0);
+    }
+    else if (communicationParser.getBoardNumber()=="1"
+            && communicationParser.getcalibrationFlag()<=communicationParser.getTotalNumberOfBoards()
+            && communicationParser.getcalibrationFlag()>=0
+            && communicationParser.getcalibrationAcknowledge()==communicationParser.getTotalNumberOfBoards())
+    { 
+      if (timer2_fired)
       {
-        if (timer2_fired)
-        {
-          timer2_fired = false;
-          counterCalibrationTime++;
+        timer2_fired = false;
+        counterCalibrationTime++;
+      }
+      if (counterCalibration>=2)//1second interval
+      { 
+        counterCalibrationTime = 0;
+        communicationParser.setcalibrationAcknowledge(1); //reset the flag to 1 (there is always 1 board)
+         
+        // Calibration math:
+        if (communicationParser.getcalibrationFlag()==0){
+          float o = getLuminance();
+          communicationParser.setO(0,o);
+          // Send my o to other boards (here because i wont receive the SendCalibrationMessage)
+
+          communicationParser.SendCalibrationValues(
+            1, //sender
+            communicationParser.getcalibrationFlag(),
+            communicationParser.FILTER_BOARD_NUMBER,
+            communicationParser.BOARD_NUMBER_BITS,
+            communicationParser.SET_RESPONSE_FLAG,
+            communicationParser.FILTER_MESSAGE_TYPE,
+            communicationParser.CALIBRATION,
+            o);  // send o
         }
-        if (counterCalibration==20)//1second interval
-        {
-          counterCalibrationTime = 0;
-          communicationParser.Data::setcalibrationAcknowledge(false);
-          communicationParser.Data::incrementcalibrationFlag();
-          if (communicationParser.Data::getcalibrationFlag()<=communicationParser.Data::getTotalNumberOfBoards())
-          {
-            /* send message */
-          }
+        // Fill K
+        else{
+          float k = (getLuminance()-communicationParser.getO(0))/255.0;
+          communicationParser.setK(0,communicationParser.getcalibrationFlag()-1,k);
+          // Send my k to other boards (here because i wont receive the SendCalibrationMessage)
+          communicationParser.SendCalibrationValues(
+            1, //sender
+            communicationParser.getcalibrationFlag(),
+            communicationParser.FILTER_BOARD_NUMBER,
+            communicationParser.BOARD_NUMBER_BITS,
+            communicationParser.SET_RESPONSE_FLAG,
+            communicationParser.FILTER_MESSAGE_TYPE,
+            communicationParser.CALIBRATION,
+            k); //send k
         }
+        //Turn on when it's my turn:
+        if(communicationParser.getcalibrationFlag()==1){analogWrite(LED_PIN, 255);}
+        else{analogWrite(LED_PIN, 0);}
+        //Send message to move to the next board: 
+        communicationParser.SendCalibrationMessage(
+            communicationParser.getcalibrationFlag(), //what board should turn on
+            communicationParser.FILTER_BOARD_NUMBER,
+            communicationParser.BOARD_NUMBER_BITS,  
+            communicationParser.RESET_RESPONSE_FLAG,
+            communicationParser.FILTER_MESSAGE_TYPE,
+            communicationParser.CALIBRATION);
+        // Move on to the next board:
+        communicationParser.incrementcalibrationFlag();
       }
     }
-    else if (communicationParser.Data::getcalibrationFlag()>communicationParser.Data::getTotalNumberOfBoards())
+    else if (communicationParser.getcalibrationFlag()>communicationParser.getTotalNumberOfBoards())
     {
       Serial.println("Ready to operate!");
       mainLoopState = CONTROL;
@@ -270,22 +326,23 @@ void loop() {
     // Serial running at 20 Hz
     if(timer2_fired){
       communicationParser.serialCommunicationSM(); // Serial communication state machine
+      //Serial.println("Ready to operate!");
       timer2_fired = false;
     }
 
     // Control running at 100 Hz
     if(timer1_fired){
       double lux;
-      communicationParser.Data::setIlluminance((float)getLuminance());
-      lux = communicationParser.Data::getIllumminance();// Read voltage
+      communicationParser.setIlluminance((float)getLuminance());
+      lux = communicationParser.getIllumminance();// Read voltage
       period = micros()-counterJitter;// period to calculate jitter
       counterJitter = micros();
       
       // Controller
-      float r = communicationParser.Data::getReference();
+      float r = communicationParser.getReference();
       float y = lux;
-      bool w = communicationParser.Data::getWindUp();
-      bool f = communicationParser.Data::getFeedback();
+      bool w = communicationParser.getWindUp();
+      bool f = communicationParser.getFeedback();
       int pwm;
       if(f){
         float v = my_pid.compute_control(r, y); //unsaturated output
@@ -295,7 +352,8 @@ void loop() {
       }
 
       if(!f){
-        pwm = my_node.d_av[communicationParser.Data::getBoardNumber().toInt()];
+        //pwm = my_node.d_av[communicationParser.getBoardNumber().toInt()];
+        pwm = communicationParser.getDutyCycle();
       }
 
       analogWrite(LED_PIN, pwm); // Set the LED
@@ -304,11 +362,11 @@ void loop() {
       //enviar soluções do consensus: pwm de cada placa (d), custo total (somatorio custo individual*pwm individual)
       
       // Visualization commands
-      if(communicationParser.Data::getIlluminanceStreamValues()){
-        Serial.println("s l " + communicationParser.Data::getBoardNumber() + " " + lux + " " + millis());
+      if(communicationParser.getIlluminanceStreamValues()){
+        Serial.println("s l " + communicationParser.getBoardNumber() + " " + lux + " " + millis());
       }
-      if(communicationParser.Data::getDutyCycleStreamValues()){
-        Serial.println("s d " + communicationParser.Data::getBoardNumber() + " " + pwm/4096.0 + " " + millis());
+      if(communicationParser.getDutyCycleStreamValues()){
+        Serial.println("s d " + communicationParser.getBoardNumber() + " " + pwm/4096.0 + " " + millis());
       }
       
       // Plot controller
@@ -331,9 +389,9 @@ void loop() {
     }
 
     // Restart check
-    if (communicationParser.Data::getRestart())
+    if (communicationParser.getRestart())
     {
-      communicationParser.Data::setRestart(false);
+      communicationParser.setRestart(false);
       Serial.println("Restarting...");
       mainLoopState = WAKE_UP_MESSAGE;
       wakeUpState = INCREMENT_ID;

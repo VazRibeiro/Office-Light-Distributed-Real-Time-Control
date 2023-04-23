@@ -1,4 +1,5 @@
 #include "Parser.h"
+#include "ADC.h"
 
 String Parser::wordsSerial[MAX_WORD_LENGTH] = {"","","",""};
 String Parser::wordsCAN[MAX_WORD_LENGTH] = {"","","",""};
@@ -78,16 +79,19 @@ void Parser::serialCommunicationSM(){
 void Parser::canCommunicationSM(){
   switch(canCurrentState){
     case READ:
-      if (CustomCAN::getDataAvailable()){
-        CustomCAN::setDataAvailable(false);
+      if (getDataAvailable()){
+        Serial.println("entered parser...");
+        decrementDataAvailable();        
         noInterrupts();
-        local_msg = CustomCAN::getcanMsgRx(); //local copy
+        local_msg=CustomCAN::getcanMsgRx(); //local copy
         interrupts();
+        setMessage2Process(true);
         canCurrentState = ACTUATE;
       }
       break;
 
     case ACTUATE:
+      setMessage2Process(false);
       source = CAN_INPUT;
       actuateCommand(wordsCAN);
       canCurrentState = READ;
@@ -533,21 +537,89 @@ bool Parser::tryGetCommandBool(String* wordsArray, can_frame msg, int messageIde
   return false;
 }
 
+
 // Sends wake up message to other boards to introduce your node_id
 void Parser::tryWakeUp(can_frame msg){
   if (source==CAN_INPUT  && msg.data[0] == WAKE_UP_PARSER)
   { //If received via CAN
     receiverBoardNumber = msg.can_id & FILTER_BOARD_NUMBER;                      // extract the receiver
     senderBoardNumber = (msg.can_id >> BOARD_NUMBER_BITS) & FILTER_BOARD_NUMBER; // extract the sender
-    if (receiverBoardNumber==0 && msg.can_dlc==1)
+    Serial.println("Found board " + String(senderBoardNumber));
+    Data::setNode(senderBoardNumber);
+    Data::setTimeout(0);
+  }
+}
+
+
+// Executes calculations and send them for calibration messages or receive values
+void Parser::tryCalibration(can_frame msg){
+  if (source==CAN_INPUT  && msg.data[0] == CALIBRATION)
+  { 
+    receiverBoardNumber = msg.can_id & FILTER_BOARD_NUMBER;                      // extract the receiver
+    senderBoardNumber = (msg.can_id >> BOARD_NUMBER_BITS) & FILTER_BOARD_NUMBER; // extract the sender
+    responseFlag = (msg.can_id >> (2*BOARD_NUMBER_BITS)) & FILTER_MESSAGE_TYPE;  // extract the response flag
+    if (!responseFlag) /*it's a message to change calibration state*/
+    { // Do the calibration math:
+      int val_Board;
+      memcpy(&val_Board,&msg.data[1],sizeof(int));
+      Serial.println("message, flag " + String(val_Board));
+      setcalibrationFlag(val_Board+1);
+      // Fill my index in the O vector
+      if (val_Board==0){
+        float o = getLuminance();
+        setO(getBoardNumber().toInt()-1,o);
+        SendCalibrationValues(
+          getBoardNumber().toInt(),
+          val_Board,
+          FILTER_BOARD_NUMBER,
+          BOARD_NUMBER_BITS,
+          SET_RESPONSE_FLAG,
+          FILTER_MESSAGE_TYPE,
+          CALIBRATION,
+          o);  // send o
+      }
+      // Fill K
+      else{
+        float k = (getLuminance()-getO(getBoardNumber().toInt()-1))/255.0;
+        setK(getBoardNumber().toInt()-1,val_Board-1,k);
+        //Send my results:
+        SendCalibrationValues(
+          getBoardNumber().toInt(),
+          val_Board,
+          FILTER_BOARD_NUMBER,
+          BOARD_NUMBER_BITS,
+          SET_RESPONSE_FLAG,
+          FILTER_MESSAGE_TYPE,
+          CALIBRATION,
+          k); //send k
+      }
+      // Actuate the led:
+      if(val_Board==getBoardNumber().toInt())
+      { analogWrite(LED_PIN, 255); }
+      else
+      { analogWrite(LED_PIN, 0); }
+    }
+    else if(responseFlag) /*it's a response with k or o values*/
     {
-      Data::setNode(senderBoardNumber);
-      Data::setTimeout(0);
+      //when board 1 gets all the acknowledges it moves to the next board to be turned on
+      incrementcalibrationAcknowledge(); 
+      float val;
+      int calibFlag = msg.data[5];
+      Serial.println("response, flag " + String(calibFlag));
+      memcpy(&val,&msg.data[1],sizeof(float));
+      if (calibFlag==0){
+        setO(senderBoardNumber-1,val);
+      }
+      // Fill K
+      else{
+        setK(senderBoardNumber-1,calibFlag-1,val);
+      }
     }
   }
 }
 
-// Restart
+
+// Restart: from serial send it and execute it, from CAN execute it
 bool Parser::tryRestart(String* wordsArray, can_frame msg){
   int numWords = 0;
   // Check number of words
@@ -589,76 +661,87 @@ bool Parser::tryRestart(String* wordsArray, can_frame msg){
 // Checks the commands for a match
 void Parser::actuateCommand(String* wordsArray){
   float timer = micros();
+  can_frame msg = local_msg;
   if(source==SERIAL_INPUT)
   {
-    local_msg.data[0] = NONE; //message identifier to none
+    msg.data[0] = NONE; //message identifier to none
   }
+  receiverBoardNumber = msg.can_id & FILTER_BOARD_NUMBER;                      // extract the receiver
+    senderBoardNumber = (msg.can_id >> BOARD_NUMBER_BITS) & FILTER_BOARD_NUMBER; // extract the sender
+    responseFlag = (msg.can_id >> (2*BOARD_NUMBER_BITS)) & FILTER_MESSAGE_TYPE;  // extract the response flag
+  Serial.println("receiver " + String(receiverBoardNumber));
+  Serial.println("sender " + String(senderBoardNumber));
+  Serial.println("id " + String(msg.data[0]));
+
 
   // Wake up identification
-  tryWakeUp(local_msg);
+  tryWakeUp(msg);
+
+  // Calibration
+  tryCalibration(msg);
 
   // "r" Restart
-  if (tryRestart(wordsArray, local_msg)){
+  if (tryRestart(wordsArray, msg)){
     return;
   }
   
   // “d <i> <val>” Set duty cycle
-  if (trySetCommandFloat(wordsArray,local_msg,SET_DUTY_CYCLE,"d",&Data::setDutyCycle,0,100)){
+  if (trySetCommandFloat(wordsArray,msg,SET_DUTY_CYCLE,"d",&Data::setDutyCycle,0,100)){
     return;
   }
   
   // “g d <i>” Get duty cycle
-  if (tryGetCommandFloat(wordsArray,local_msg,GET_DUTY_CYCLE,"d",&Data::getDutyCycle)){
+  if (tryGetCommandFloat(wordsArray,msg,GET_DUTY_CYCLE,"d",&Data::getDutyCycle)){
     return;
   }
   
   // “r <i> <val>” Set illuminance reference
-  if (trySetCommandFloat(wordsArray,local_msg,SET_LUX_REFERENCE,"r",&Data::setReference,0,999)){
+  if (trySetCommandFloat(wordsArray,msg,SET_LUX_REFERENCE,"r",&Data::setReference,0,999)){
     return;
   }
   
   // “g r <i>” Get illuminance reference
-  if (tryGetCommandFloat(wordsArray,local_msg,GET_LUX_REFERENCE,"r",&Data::getReference)){
+  if (tryGetCommandFloat(wordsArray,msg,GET_LUX_REFERENCE,"r",&Data::getReference)){
     return;
   }
 
   // “g l <i>” Get illuminance at luminaire <i>
-  if (tryGetCommandFloat(wordsArray,local_msg,GET_LUX_MEASUREMENT,"l",&Data::getIllumminance)){
+  if (tryGetCommandFloat(wordsArray,msg,GET_LUX_MEASUREMENT,"l",&Data::getIllumminance)){
     return;
   }
 
   // “o <i> <val>” Set current occupancy state at desk <i>
-  if (trySetCommandBool(wordsArray,local_msg,SET_OCCUPANCY,"o",&Data::setOccupancy)){
+  if (trySetCommandBool(wordsArray,msg,SET_OCCUPANCY,"o",&Data::setOccupancy)){
     return;
   }
   
   // “g o <i>” Get current occupancy state at desk <i>
-  if (tryGetCommandBool(wordsArray,local_msg,GET_OCCUPANCY,"o",&Data::getOccupancy)){
+  if (tryGetCommandBool(wordsArray,msg,GET_OCCUPANCY,"o",&Data::getOccupancy)){
     return;
   }
 
   // “a <i> <val>” Set anti-windup state at desk <i>
-  if (trySetCommandBool(wordsArray,local_msg,SET_ANTI_WINDUP,"a",&Data::setWindUp)){
+  if (trySetCommandBool(wordsArray,msg,SET_ANTI_WINDUP,"a",&Data::setWindUp)){
     return;
   }
   
   // “g a <i>” Get anti-windup state at desk <i>
-  if (tryGetCommandBool(wordsArray,local_msg,GET_ANTI_WINDUP,"a",&Data::getWindUp)){
+  if (tryGetCommandBool(wordsArray,msg,GET_ANTI_WINDUP,"a",&Data::getWindUp)){
     return;
   }
   
   // “k <i> <val>” Set feedback on/off at desk <i>
-  if (trySetCommandBool(wordsArray,local_msg,SET_FEEDBACK,"k",&Data::setFeedback)){
+  if (trySetCommandBool(wordsArray,msg,SET_FEEDBACK,"k",&Data::setFeedback)){
     return;
   }
   
   // “g k <i>” Get feedback on/off at desk <i>
-  if (tryGetCommandBool(wordsArray,local_msg,GET_FEEDBACK,"k",&Data::getFeedback)){
+  if (tryGetCommandBool(wordsArray,msg,GET_FEEDBACK,"k",&Data::getFeedback)){
     return;
   }
 
   // “g r <i>” Get illuminance reference
-  if (tryGetCommandFloat(wordsArray,local_msg,GET_BOARD,"kk",&Data::getBoardNumberInt)){
+  if (tryGetCommandFloat(wordsArray,msg,GET_BOARD,"kk",&Data::getBoardNumberInt)){
     return;
   }
 

@@ -26,6 +26,8 @@ class Parser : public Data, public CustomCAN {
       actuationInterval = 0;
       Data::reset();
     }
+    void setMessage2Process(bool m2p){message2Process=m2p;}
+    bool getMessage2Process() const {return message2Process;}
 
     enum canMessageIdentifier {
       ZERO,
@@ -44,7 +46,17 @@ class Parser : public Data, public CustomCAN {
       GET_LAST_MINUTE_BUFFER,
       GET_BOARD,
       WAKE_UP_PARSER,
+      CALIBRATION,
       NONE
+    };
+    enum filters{
+      BOARD_NUMBER_BITS = 14,
+      FILTER_BOARD_NUMBER = 0x3FFF,
+      FILTER_MESSAGE_TYPE = 0x1
+    };
+    enum id29 {
+      RESET_RESPONSE_FLAG,
+      SET_RESPONSE_FLAG
     };
 
   private:
@@ -59,10 +71,7 @@ class Parser : public Data, public CustomCAN {
       SERIAL_INPUT,
       CAN_INPUT
     };
-    enum id29 {
-      RESET_RESPONSE_FLAG,
-      SET_RESPONSE_FLAG
-    };
+
     state serialCurrentState;
     state canCurrentState;
     inputSource source;
@@ -70,11 +79,12 @@ class Parser : public Data, public CustomCAN {
     // Constant limits
     static const int MAX_MESSAGE_LENGTH = 20; // Maximum allowed message length
     static const int MAX_WORD_LENGTH = 4; // Maximum allowed message length
-    static const int BOARD_NUMBER_BITS = 14;  // Number of board identifying bits.
-    static const int FILTER_BOARD_NUMBER = 0x3FFF;  // Comparison bits for decoding can id;
-    static const int FILTER_MESSAGE_TYPE = 0x1;  // Comparison bits for decoding can id;
+    // static const int BOARD_NUMBER_BITS = 14;  // Number of board identifying bits.
+    // static const int FILTER_BOARD_NUMBER = 0x3FFF;  // Comparison bits for decoding can id;
+    // static const int FILTER_MESSAGE_TYPE = 0x1;  // Comparison bits for decoding can id;
 
     // Variables
+    const int LED_PIN {28};
     String serialMessage; //raw message
     static String wordsSerial[MAX_WORD_LENGTH]; //array of words used in serial comms
     static String wordsCAN[MAX_WORD_LENGTH]; //array of words used in CAN comms
@@ -82,6 +92,7 @@ class Parser : public Data, public CustomCAN {
     int senderBoardNumber;
     int responseFlag;
     can_frame local_msg;
+    bool message2Process{false};
 
     // Debug flags
     bool getSerialDuration;
@@ -96,6 +107,7 @@ class Parser : public Data, public CustomCAN {
     bool trySetCommandBool(String* wordsArray, can_frame msg, int messageIdentifier, String commandIdentifier, setBool func);
     bool tryGetCommandBool(String* wordsArray, can_frame msg, int messageIdentifier, String commandIdentifier, getBool func);
     void tryWakeUp(can_frame msg);
+    void tryCalibration(can_frame msg);
     bool tryRestart(String* wordsArray, can_frame msg);
     void actuateCommand(String* wordsArray); //Sets flags and executes getters
 };
