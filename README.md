@@ -1,3 +1,7 @@
+# Description
+Project for the Distributed Real Time Control Course from Instituto Superior Técnico. Only measurements, individual control and communication is implemented in this repository.
+
+
 # Office-Light-Distributed-Real-Time-Control
 
 * [x] ADC Reading
